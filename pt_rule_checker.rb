@@ -2,7 +2,7 @@
 
 #TODO:
 # [] Design output support. markdown.
-# []
+# [] Provide Rules API ADD/DELETE request bodies.
 # [] Known issues: Not catching all 'AND' rules.
 # [] Non-Twitter rule analysis?
 
@@ -45,14 +45,7 @@
 #Rules with  "AND ": 58,083
 #Rules with  "AND " or " and " and no '"' (no double-quotes): 33,885
 
-
-
-
-
-
 #-----------------------------------------------------------------------------------------------------------------------
-
-
 require 'json'
 require 'csv'
 require 'logging'
@@ -94,7 +87,7 @@ class PowerTrackSystem
 
     write_system_output
 
-    puts "Finished with  #{@account_name}..."
+    puts "Finished with #{@account_name}..."
     puts '====================================================================='
 
   end
@@ -220,6 +213,9 @@ class PowerTrackStream
 
     end
 
+    check_AND_rules
+
+
     num_AND_rules = 0
     @rule_set.rules.each do |rule|
 
@@ -239,40 +235,44 @@ class PowerTrackStream
 
     ruleMetadata = []
 
-
     @rule_set.rules.each do |rule|
 
-
       #Call Search API counts for rule as originally written.
-      counts_response = get_search_counts(search_api_creds, rule)
+      if rule.worksWithSearch? then
+        counts_response = get_search_counts(search_api_creds, rule.value)
+      else
+        msg = "Skipping rule, has Operators unsupported by Search API: #{rule.value}."
+        logger.info msg
+        next #skip
+      end
 
+      #Called Search API counts endpoint, but not successful.
       if counts_response['results'].nil? or counts_response.include? 'error' or counts_response.include? 'Could not accept' then
-        rule.value_corrected = ''
-        if counts_response.include? 'Search does not currently support' then
-          rule.value_corrected = "Rule has Operators unsupported by Search API."
-        end
-
-        rule.count_30_day = -1
-        rule.count_30_day_corrected = nil
-        rule.count_timeseries = -1
-        rule.count_timeseries_corrected = nil
-
-        logger.info "Skipping rule: #{rule}"
+        msg = "Error with rule: #{rule.value}."
+        logger.info msg
         next #skip
       end
 
       rule.count_30_day = get_count_total(counts_response)
       rule.count_timeseries = get_count_timeseries(counts_response)
 
-
       #Correct the rule.
       #regex = /(?<!["])(AND )(?!["])/
       rule.value_corrected = rule.value.gsub(REGEX_AND,"")
-      oRule.value_corrected = value_corrected
-      #puts rule_corrected
 
       #Call Search API counts for rule as originally written.
-      counts_after = get_search_counts(search_api_creds, value_corrected)
+      counts_response = get_search_counts(search_api_creds, rule.value_corrected)
+      rule.count_30_day_corrected = get_count_total(counts_response)
+      rule.count_timeseries_corrected = get_count_timeseries(counts_response)
+
+      if @verbose then
+        puts
+        puts rule.value
+        puts rule.value_corrected
+        puts "--> 30-day count --> Before: #{separate_comma(rule.count_30_day)} | After: #{separate_comma(rule.count_30_day_corrected)}"
+        puts "                     Delta: #{separate_comma(rule.count_30_day_corrected - rule.count_30_day)} | Factor: #{'%.1f' % (rule.count_30_day_corrected/(rule.count_30_day * 1.0))}" if rule.count_30_day > 0
+      end
+
     end
 
 
@@ -281,71 +281,7 @@ class PowerTrackStream
 
 =end
 
-    ruleMetadata = []
-
-    #Special AND rule processing...
-    rules_AND.each do |rule|
-
-      oRule = PTRule.new
-      oRule.rule = rule
-
-      #Call Search API counts for rule as originally written.
-      counts_before = get_search_counts(search_api_creds, rule)
-
-      if counts_before['results'].nil? or counts_before.include? 'error' or counts_before.include? 'Could not accept' then
-        if counts_before.include? 'Search does not currently support' then
-         rule_corrected = "Rule has Operators unsupported by Search API."
-        else
-          rule_corrected = "Unknown error."
-        end
-
-        #logger.info "Skipping rule: #{rule}"
-
-        oRule.count_30_day = -1
-        oRule.count_30_day_corrected = -1
-        oRule.count_timeseries = -1
-        oRule.count_timeseries_corrected = -1
-
-        next #skip
-      end
-
-      oRule.count_30_day = get_count_total(counts_before)
-      oRule.count_timeseries = get_count_timeseries(counts_before)
-
-      #Correct the rule.
-      #regex = /(?<!["])(AND )(?!["])/
-      rule_corrected = rule.gsub(REGEX_AND,"")
-      oRule.rule_corrected = rule_corrected
-      #puts rule_corrected
-
-      #Call Search API counts for rule as originally written.
-      counts_after = get_search_counts(search_api_creds, rule_corrected)
-
-      if counts_after['results'].nil? or counts_after.include? 'error' or counts_after.include? 'Could not accept' then
-
-        #logger.info "Skipping corrected rule: #{rule}"
-
-        oRule.count_30_day = -1
-        oRule.count_30_day_corrected = -1
-        oRule.count_timeseries = -1
-        oRule.count_timeseries_corrected = -1
-
-        next #skip
-      end
-
-      oRule.count_30_day_corrected = get_count_total(counts_after)
-      oRule.count_timeseries_corrected = get_count_timeseries(counts_after)
-      if @verbose then
-        puts
-        puts rule
-        puts "--> 30-day count --> Before: #{separate_comma(oRule.count_30_day)} | After: #{separate_comma(oRule.count_30_day_corrected)}"
-        puts "                     Delta: #{separate_comma(oRule.count_30_day_corrected - oRule.count_30_day)} | Factor: #{'%.1f' % (oRule.count_30_day_corrected/(oRule.count_30_day * 1.0))}" if oRule.count_30_day > 0
-      end
-
-      ruleMetadata << oRule
-    end
-
-    #Calculate Stream-level things around the AND-correction results.
+ #Calculate Stream-level things around the AND-correction results.
     rule_count_totals = 0.0
     rule_count_corrected_totals = 0.0
     delta = 0
