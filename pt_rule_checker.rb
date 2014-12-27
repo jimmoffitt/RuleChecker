@@ -213,8 +213,6 @@ class PowerTrackStream
 
     end
 
-    check_AND_rules
-
 
     num_AND_rules = 0
     @rule_set.rules.each do |rule|
@@ -406,7 +404,8 @@ class PowerTrackStream
     return if output_file.nil?
 
     puts '=============================================================================================================='
-
+    puts
+    puts '## Stream summary ##'
     puts "Account/System name:#{@account_name}:"
     puts "Number of rules: #{separate_comma(@rule_count)}"
     puts "Rule average characters: #{separate_comma(@rule_length_avg)}"
@@ -624,6 +623,7 @@ class RulesApp
     logging = PTLogging.new
     logging.get_config(config_file)
     @logger = logging.get_logger
+    @logging.name = 'compliance_api'
 
   end
 
