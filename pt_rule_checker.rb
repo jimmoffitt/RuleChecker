@@ -67,6 +67,7 @@ class PowerTrackSystem
                 :activities_before, :activities_after,
 
                 #App settings.
+                :outbox,
                 :verbose,
 
                 :logger
@@ -81,25 +82,40 @@ class PowerTrackSystem
     logger.debug "Checking #{@account_name} streams..."
 
     @streams.each do |stream|
+      stream.verbose = @verbose
       stream.account_name = @account_name
+      stream.outbox = @outbox
+      stream.logger = @logger
       stream.check(rules_api_creds, search_api_creds)
     end
 
-    write_system_output
+    write_output
 
-    puts "Finished with #{@account_name}..."
-    puts '====================================================================='
+    if @verbose then
+      puts
+      puts "Finished with #{@account_name}..."
+      puts '====================================================================='
+    end
 
   end
 
   #Write report text.
-  def write_system_output
-
+  def write_output
     puts "Writing #{@account_name} output..."
 
+    #Create output file...
+    filename = "#{@outbox}/#{@account_name}.md" #markdown
+
+    f = File.new(filename,  "w+")
+
     @streams.each do |stream|
-      stream.write_output
+      stream.write_output f
     end
+
+    f.puts("Finished with #{@account_name} system.")
+
+    f.close
+
   end
 end
 
@@ -123,6 +139,7 @@ class PowerTrackStream
                 :rule_max_factor, :rule_max_factor_value, :rule_max_factor_30_day, :rule_max_factor_30_day_corrected,
 
                 #App settings.
+                :outbox,
                 :verbose,
                 :request_sleep,
 
@@ -399,33 +416,55 @@ class PowerTrackStream
   end
 
   #Write Stream report text.
-  def write_output(output_file=nil)
+  def write_output(f=nil)
 
-    return if output_file.nil?
+    return if f.nil?
 
-    puts '=============================================================================================================='
-    puts
-    puts '## Stream summary ##'
-    puts "Account/System name:#{@account_name}:"
-    puts "Number of rules: #{separate_comma(@rule_count)}"
-    puts "Rule average characters: #{separate_comma(@rule_length_avg)}"
-    puts "Rule maximum characters: #{separate_comma(@rule_length_max)}"
-    puts "Rule maximum value: #{@rule_max}"
-    puts "Number of AND rules: #{separate_comma(@rule_AND_count)}"
-    puts
+    f.puts '## Stream summary ##'
+    f.puts "Account/System name:#{@account_name}:"
+    f.puts "Number of rules: #{separate_comma(@rule_count)}"
+    f.puts "Rule average characters: #{separate_comma(@rule_length_avg)}"
+    f.puts "Rule maximum characters: #{separate_comma(@rule_length_max)}"
+    f.puts "Rule maximum value: #{@rule_max}"
+    f.puts "Number of AND rules: #{separate_comma(@rule_AND_count)}"
 
-    puts " #{@account_name} rule metadata --------------------------------------------------"
-    puts "Longest rule has #{@rule_length_max} characters."
-    puts "Average rule has #{@rule_length_avg} characters"
+    f.puts " #{@account_name} rule metadata --------------------------------------------------"
+    f.puts "Longest rule has #{@rule_length_max} characters."
+    f.puts "Average rule has #{@rule_length_avg} characters"
 
-    puts "30-day counts before: #{separate_comma(@rule_count_totals.to_i)}" if @rule_AND_count > 0
-    puts "30-day counts after: #{separate_comma(@rule_count_corrected_totals.to_i)}" if @rule_AND_count > 0
-    puts "Rule with highest delta (#{@rule_max_delta} <= #{@rule_max_delta_30_day_corrected} - #{@rule_max_delta_30_day}): #{@rule_max_delta_value}" if @rule_AND_count > 0
-    puts "Rule with highest factor (#{@rule_max_factor} <= #{@rule_max_factor_30_day_corrected} / #{@rule_max_factor_30_day}): #{@rule_max_factor_value}" if @rule_AND_count > 0
-    puts
-    puts "=============================================================================================================="
-    puts
+    f.puts "30-day counts before: #{separate_comma(@rule_count_totals.to_i)}" if @rule_AND_count > 0
+    f.puts "30-day counts after: #{separate_comma(@rule_count_corrected_totals.to_i)}" if @rule_AND_count > 0
+    f.puts "Rule with highest delta (#{@rule_max_delta} <= #{@rule_max_delta_30_day_corrected} - #{@rule_max_delta_30_day}): #{@rule_max_delta_value}" if @rule_AND_count > 0
+    f.puts "Rule with highest factor (#{@rule_max_factor} <= #{@rule_max_factor_30_day_corrected} / #{@rule_max_factor_30_day}): #{@rule_max_factor_value}" if @rule_AND_count > 0
+    f.puts "=============================================================================================================="
 
+
+
+
+    if @verbose then
+      puts '=============================================================================================================='
+      puts
+      puts '## Stream summary ##'
+      puts "Account/System name:#{@account_name}:"
+      puts "Number of rules: #{separate_comma(@rule_count)}"
+      puts "Rule average characters: #{separate_comma(@rule_length_avg)}"
+      puts "Rule maximum characters: #{separate_comma(@rule_length_max)}"
+      puts "Rule maximum value: #{@rule_max}"
+      puts "Number of AND rules: #{separate_comma(@rule_AND_count)}"
+      puts
+
+      puts " #{@account_name} rule metadata --------------------------------------------------"
+      puts "Longest rule has #{@rule_length_max} characters."
+      puts "Average rule has #{@rule_length_avg} characters"
+
+      puts "30-day counts before: #{separate_comma(@rule_count_totals.to_i)}" if @rule_AND_count > 0
+      puts "30-day counts after: #{separate_comma(@rule_count_corrected_totals.to_i)}" if @rule_AND_count > 0
+      puts "Rule with highest delta (#{@rule_max_delta} <= #{@rule_max_delta_30_day_corrected} - #{@rule_max_delta_30_day}): #{@rule_max_delta_value}" if @rule_AND_count > 0
+      puts "Rule with highest factor (#{@rule_max_factor} <= #{@rule_max_factor_30_day_corrected} / #{@rule_max_factor_30_day}): #{@rule_max_factor_value}" if @rule_AND_count > 0
+      puts
+      puts "=============================================================================================================="
+      puts
+    end
 
   end
 
@@ -495,9 +534,9 @@ class RulesApp
 
     #App settings.
     begin
-      @out_box = checkDirectory(config["app"]["out_box"])
+      @outbox = checkDirectory(config["app"]["outbox"])
     rescue
-      @out_box = "./output"
+      @outbox = "./output"
     end
 
     #@log_file_path = config['app']['log_file_path']
@@ -566,9 +605,8 @@ class RulesApp
         new_stream = PowerTrackStream.new
         new_stream.publisher = details['publisher']
         new_stream.label = details['label']
-        new_stream.verbose = @verbose
         new_stream.request_sleep = @request_sleep
-        new_stream.logger = @logger
+        #new_stream.logger = @logger
 
 
         if !system_names.include? details['account_name'] then
@@ -578,6 +616,7 @@ class RulesApp
           system = PowerTrackSystem.new
           system.account_name = details['account_name']
           system.verbose = @verbose
+          system.outbox = @outbox
           system.logger = @logger
 
           @systems << system #Add system.
@@ -603,9 +642,9 @@ class RulesApp
         stream = PowerTrackStream.new
         stream.publisher = details['publisher']
         stream.label = details['label']
-        stream.verbose = @verbose
+        #stream.verbose = @verbose
         stream.request_sleep = @request_sleep
-        stream.logger = @logger
+        #stream.logger = @logger
 
         system.streams << stream
       end
@@ -623,7 +662,7 @@ class RulesApp
     logging = PTLogging.new
     logging.get_config(config_file)
     @logger = logging.get_logger
-    @logging.name = 'compliance_api'
+    logging.name = 'compliance_api'
 
   end
 
