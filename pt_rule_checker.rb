@@ -5,12 +5,13 @@
 # [] Provide Rules API ADD/DELETE request bodies.
 # [] Known issues: Not catching all 'AND' rules.
 # [] Non-Twitter rule analysis?
+# []
 
 
 #### RuleChecker
 # Attempts to assess the 'effectiveness' of PowerTrack rules.
 
-# All configuration details are provided in a local config_private_internal.yaml file.
+# All configuration details are provided in a local config.yaml file.
 # For Gnip internal use there is an "internal" section of the config file:
 #     Includes file path to CSV with accounts to check.
 #     Includes credentials for reading customer rules.
@@ -108,6 +109,11 @@ class PowerTrackSystem
 
     f = File.new(filename,  "w+")
 
+    f.puts "## #{@account_name} System Summary ##"
+
+    f.puts "Number of Power Track real-time streams: #{@streams.length}"
+    f.puts
+
     @streams.each do |stream|
       stream.write_output f
     end
@@ -200,10 +206,6 @@ class PowerTrackStream
   end
 
   def process_AND_rules
-
-
-
-
   end
 
 
@@ -217,7 +219,7 @@ class PowerTrackStream
     rule_length = 0
 
     @rule_set.rules.each do |rule|
-      puts rule.value
+      #puts rule.value
 
       #Rule stats
       rule_length = rule.value.length
@@ -248,55 +250,7 @@ class PowerTrackStream
     logger.debug "Analyzing AND rules..." if @rule_AND_count > 0
     logger.debug "Getting 30-day counts (before and after)..." if @rule_AND_count > 0
 
-    ruleMetadata = []
-
-    @rule_set.rules.each do |rule|
-
-      #Call Search API counts for rule as originally written.
-      if rule.worksWithSearch? then
-        counts_response = get_search_counts(search_api_creds, rule.value)
-      else
-        msg = "Skipping rule, has Operators unsupported by Search API: #{rule.value}."
-        logger.info msg
-        next #skip
-      end
-
-      #Called Search API counts endpoint, but not successful.
-      if counts_response['results'].nil? or counts_response.include? 'error' or counts_response.include? 'Could not accept' then
-        msg = "Error with rule: #{rule.value}."
-        logger.info msg
-        next #skip
-      end
-
-      rule.count_30_day = get_count_total(counts_response)
-      rule.count_timeseries = get_count_timeseries(counts_response)
-
-      #Correct the rule.
-      #regex = /(?<!["])(AND )(?!["])/
-      rule.value_corrected = rule.value.gsub(REGEX_AND,"")
-
-      #Call Search API counts for rule as originally written.
-      counts_response = get_search_counts(search_api_creds, rule.value_corrected)
-      rule.count_30_day_corrected = get_count_total(counts_response)
-      rule.count_timeseries_corrected = get_count_timeseries(counts_response)
-
-      if @verbose then
-        puts
-        puts rule.value
-        puts rule.value_corrected
-        puts "--> 30-day count --> Before: #{separate_comma(rule.count_30_day)} | After: #{separate_comma(rule.count_30_day_corrected)}"
-        puts "                     Delta: #{separate_comma(rule.count_30_day_corrected - rule.count_30_day)} | Factor: #{'%.1f' % (rule.count_30_day_corrected/(rule.count_30_day * 1.0))}" if rule.count_30_day > 0
-      end
-
-    end
-
-
-=begin THROW OUT
-
-
-=end
-
- #Calculate Stream-level things around the AND-correction results.
+    #Calculate Stream-level things around the AND-correction results.
     rule_count_totals = 0.0
     rule_count_corrected_totals = 0.0
     delta = 0
@@ -310,27 +264,71 @@ class PowerTrackStream
     rule_max_factor_30_day_corrected = 0
     rule_max_factor_value  = ''
 
-    ruleMetadata.each do |details|
-      #Scan for biggest delta and biggest percentage change.
-      rule_count_totals = rule_count_totals + details.count_30_day
-      rule_count_corrected_totals = rule_count_corrected_totals + details.count_30_day_corrected
+    @rule_set.rules.each do |rule|
 
-      delta = details.count_30_day_corrected - details.count_30_day
-      if delta > rule_max_delta then
-        rule_max_delta = delta
-        rule_max_delta_30_day = details.count_30_day
-        rule_max_delta_30_day_corrected = details.count_30_day_corrected
-        rule_max_delta_value = details.rule
-      end
+      if rule.is_a? PT_AND_RULE then #Handle AND rules.
 
-      factor = (details.count_30_day_corrected/details.count_30_day.to_f) if details.count_30_day > 0
-      if factor > rule_max_factor then
-        rule_max_factor = factor
-        rule_max_factor_30_day = details.count_30_day
-        rule_max_factor_30_day_corrected = details.count_30_day_corrected
-        rule_max_factor_value = details.rule
+        #Call Search API counts for rule as originally written.
+        if rule.worksWithSearch? then
+          counts_response = get_search_counts(search_api_creds, rule.value)
+        else
+          msg = "Skipping rule, has Operators unsupported by Search API: #{rule.value}."
+          logger.info msg
+          next #skip
+        end
+
+        #Called Search API counts endpoint, but not successful.
+        if counts_response['results'].nil? or counts_response.include? 'error' or counts_response.include? 'Could not accept' then
+          msg = "Error with rule: #{rule.value}."
+          logger.info msg
+          msg = counts_response['error']['message'] if not counts_response['error']['message'].nil?
+          logger.info msg
+          next #skip
+        end
+
+        rule.count_30_day = get_count_total(counts_response)
+        rule.count_timeseries = get_count_timeseries(counts_response)
+
+        #Correct the rule.
+        #regex = /(?<!["])(AND )(?!["])/
+        rule.value_corrected = rule.value.gsub(REGEX_AND,"")
+
+        #Call Search API counts for rule as originally written.
+        counts_response = get_search_counts(search_api_creds, rule.value_corrected)
+        rule.count_30_day_corrected = get_count_total(counts_response)
+        rule.count_timeseries_corrected = get_count_timeseries(counts_response)
+
+        if @verbose then
+          puts
+          puts rule.value
+          puts rule.value_corrected
+          puts "--> 30-day count --> Before: #{separate_comma(rule.count_30_day)} | After: #{separate_comma(rule.count_30_day_corrected)}"
+          puts "                     Delta: #{separate_comma(rule.count_30_day_corrected - rule.count_30_day)} | Factor: #{'%.1f' % (rule.count_30_day_corrected/(rule.count_30_day * 1.0))}" if rule.count_30_day > 0
+        end
+
+
+        #Stream-wide stats.
+        rule_count_totals = rule_count_totals + rule.count_30_day
+        rule_count_corrected_totals = rule_count_corrected_totals + rule.count_30_day_corrected
+
+        delta = rule.count_30_day_corrected - rule.count_30_day
+        if delta > rule_max_delta then
+          rule_max_delta = delta
+          rule_max_delta_30_day = rule.count_30_day
+          rule_max_delta_30_day_corrected = rule.count_30_day_corrected
+          rule_max_delta_value = rule.value
+        end
+
+        factor = (rule.count_30_day_corrected/rule.count_30_day.to_f) if rule.count_30_day > 0
+        if factor > rule_max_factor then
+          rule_max_factor = factor
+          rule_max_factor_30_day = rule.count_30_day
+          rule_max_factor_30_day_corrected = rule.count_30_day_corrected
+          rule_max_factor_value = rule.value
+        end
       end
     end
+
 
     #Harvest this stream's rule metadata.
     @rule_count_totals = rule_count_totals
@@ -420,18 +418,14 @@ class PowerTrackStream
 
     return if f.nil?
 
-    f.puts '## Stream summary ##'
-    f.puts "Account/System name:#{@account_name}:"
-    f.puts "Number of rules: #{separate_comma(@rule_count)}"
-    f.puts "Rule average characters: #{separate_comma(@rule_length_avg)}"
-    f.puts "Rule maximum characters: #{separate_comma(@rule_length_max)}"
-    f.puts "Rule maximum value: #{@rule_max}"
-    f.puts "Number of AND rules: #{separate_comma(@rule_AND_count)}"
-
-    f.puts " #{@account_name} rule metadata --------------------------------------------------"
-    f.puts "Longest rule has #{@rule_length_max} characters."
-    f.puts "Average rule has #{@rule_length_avg} characters"
-
+    f.puts '### Stream summary ###'
+    f.puts "Endpoint: #{@publisher}/#{@product}/#{@label}.json"
+    f.puts "+ Number of rules: #{separate_comma(@rule_count)}"
+    f.puts "+ Rule average characters: #{separate_comma(@rule_length_avg)}"
+    f.puts "+ Rule maximum characters: #{separate_comma(@rule_length_max)}"
+    f.puts "+ Rule maximum value: #{@rule_max}"
+    f.puts "+ Number of AND rules: #{separate_comma(@rule_AND_count)}"
+    f.puts
     f.puts "30-day counts before: #{separate_comma(@rule_count_totals.to_i)}" if @rule_AND_count > 0
     f.puts "30-day counts after: #{separate_comma(@rule_count_corrected_totals.to_i)}" if @rule_AND_count > 0
     f.puts "Rule with highest delta (#{@rule_max_delta} <= #{@rule_max_delta_30_day_corrected} - #{@rule_max_delta_30_day}): #{@rule_max_delta_value}" if @rule_AND_count > 0
