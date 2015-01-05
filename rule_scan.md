@@ -29,6 +29,13 @@ Ruby pseudo-code:
 
 ##Other notes 
 
+Removing explicit ANDs and creating "corrected" rules is pretty straightforward. All you need to do is remove them from the rule value.
+
+Handling cases of missing (or missed applied) parentheses and quotes is more complicated. Where should the added (or moved) items be placed? 
+
+A starting point is a 'trial and error' process. Corrected rule candidates could be tested against a short search period and matched activities compared.  
+
+
 ### Missing parentheses
 
 Lack of parentheses when both ANDs and ORs are used are suspect. When only ORs or only ANDs then paratheses have no effect.
