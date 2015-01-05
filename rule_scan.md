@@ -35,10 +35,31 @@ ands.length = 6
 ands[0] = 'ONE ' 
 ands[1] = ' ("THIS '
 ands[2] = ' THAT" OR "UP '  
+ands[3] = ' DOWN" OR "LEFT ' 
+ands[4] = ' RIGHT")'
 ands[5] = ' DIRECTION'
 
 ```
 
+
+ rule: ```one AND (\"this and that\" OR \"up AND down\" OR \"left and right\") AND direction```
+ 
+ Here we care about first and last ANDs, but not neccesarily the quoted ANDs ones (although they are almost as bad...).
+ 
+ Five ANDs... Are they quoted?: 
+ 
+    1 - First quoted? --> ands[0] does not contain a double-quote, so no.  SUM(quotes)[0] = 0 --> no
+    2 - Is second AND quoted? SUM(quotes)[0-1] = 1, _odd_ --> yes
+    3 - is third? SUM(quotes)[0-2] = 3, _odd_ --> yes
+    4) Fourth? SUM(quotes)[0-3] = 5, _odd_ --> yes
+    5) Fifth? SUM(quotes)[0-4] = 6, _even_ --> no
+ 
+ 
+ 
+ 
+ 
+ 
+ 
 
 
 
