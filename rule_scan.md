@@ -19,7 +19,7 @@
 
  ----> quoted AND if the sum of leading double quotes is odd.    
     
-    Ruby pseudo-code:
+Ruby pseudo-code:
     
     ```
     AND = true if SUM(quotes)[].even?  #Bad rules we care most about...
