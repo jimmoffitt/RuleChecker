@@ -25,14 +25,35 @@ Ruby pseudo-code:
     AND = true if SUM(quotes)[].even?  #Bad rules we care most about...
     quoted_AND = true if not SUM(quotes)[].even?``` #Suspect rules... 
     ```
- 
+
+
+##Other notes 
 
 ### Missing parentheses
+
+Lack of parentheses when both ANDs and ORs are used are suspect. When only ORs or only ANDs then paratheses have no effect.
 
 ```
 go away OR leave here --> 2.1M
 ---> (go away OR leave) here --> 0.5K
 ```
+
+Characterics/triggers:
+* Contains no parentheses
+* Contains unquoted " OR "
+* Contains unquoted ` ` (white space indicating PowerTrack implicit AND)
+ 
+[] How will parentheses be inserted?  Generate every possibility? 
+
+
+go away OR leave here -- note that this is equivalent to (go way) OR (leave here)
+  * --> (go away OR leave) here 
+  * --> go (away OR leave) here 
+  * --> go (away OR leave here) 
+
+_Using ORs as opening/closing boundaries._
+
+
 
 ### Missing Quotes
 
@@ -46,7 +67,9 @@ Another example:
 
 ```
 go away here --> 35,142
+
 "go away" here --> 15,481
+go "away here" --> 264
 ```
 
 ### Missing both
