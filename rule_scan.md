@@ -33,6 +33,8 @@ ands = rule.upcase.split('AND')
 
 ands.length = 6
 ands[0] = 'ONE ' 
+ands[1] = ' ("THIS '
+ands[2] = ' THAT" OR "UP '  
 ands[5] = ' DIRECTION'
 
 ```
