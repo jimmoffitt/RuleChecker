@@ -4,6 +4,30 @@
 
 ####Quoted or unquoted ANDs
 
+ rule: ```one AND (\"this and that\" OR \"up AND down\" OR \"left and right\") AND direction```
+ 
+ Here we care about first and last ANDs, but not neccesarily the quoted ANDs ones (although they are almost as bad...).
+ 
+ Five ANDs... Are they quoted?: 
+ 
+    1 - First quoted? --> ands[0] does not contain a double-quote, so no.  SUM(quotes)[0] = zero(even) --> no, unquoted.
+    2 - Is second AND quoted? SUM(quotes)[0-1] = 1, _odd_ --> yes, in quotes.
+    3 - is third? SUM(quotes)[0-2] = 3, _odd_ --> yes, in quotes.
+    4) Fourth? SUM(quotes)[0-3] = 5, _odd_ --> yes, in quotes.
+    5) Fifth? SUM(quotes)[0-4] = 6, _even_ --> no, unquoted.
+    
+    
+    ----> quoted AND if the sum of leading double quotes is odd.    
+    
+    ```
+    AND = true if SUM(quotes)[].even?  #Bad rules we care most about...
+    quoted_AND = true if not SUM(quotes)[].even?``` #Suspect rules... 
+    ```
+ 
+
+
+
+
 ```
 rule = "\"this and that\" OR \"up AND down\" AND \"left and right\" OR direction" 
 => "\"this and that\" OR \"up AND down\" AND \"left and right\" OR direction"
@@ -42,19 +66,7 @@ ands[5] = ' DIRECTION'
 ```
 
 
- rule: ```one AND (\"this and that\" OR \"up AND down\" OR \"left and right\") AND direction```
- 
- Here we care about first and last ANDs, but not neccesarily the quoted ANDs ones (although they are almost as bad...).
- 
- Five ANDs... Are they quoted?: 
- 
-    1 - First quoted? --> ands[0] does not contain a double-quote, so no.  SUM(quotes)[0] = 0 --> no
-    2 - Is second AND quoted? SUM(quotes)[0-1] = 1, _odd_ --> yes
-    3 - is third? SUM(quotes)[0-2] = 3, _odd_ --> yes
-    4) Fourth? SUM(quotes)[0-3] = 5, _odd_ --> yes
-    5) Fifth? SUM(quotes)[0-4] = 6, _even_ --> no
- 
- 
+
  
  
  
