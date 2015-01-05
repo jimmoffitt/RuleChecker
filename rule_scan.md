@@ -16,8 +16,10 @@
     4. Fourth? SUM(quotes)[0-3] = 5, _odd_ --> yes, in quotes.
     5. Fifth? SUM(quotes)[0-4] = 6, _even_ --> no, unquoted.
     
+
+ ----> quoted AND if the sum of leading double quotes is odd.    
     
-    ----> quoted AND if the sum of leading double quotes is odd.    
+    Ruby pseudo-code:
     
     ```
     AND = true if SUM(quotes)[].even?  #Bad rules we care most about...
