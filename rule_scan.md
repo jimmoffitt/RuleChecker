@@ -131,7 +131,8 @@ ands[5] = ' DIRECTION'
 
 ```
 
-
+ford OR carter OR bush OR clinton president --> 5M
+(ford OR carter OR bush OR clinton) president --> 177K
 
  
  
