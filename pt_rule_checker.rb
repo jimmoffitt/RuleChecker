@@ -5,7 +5,7 @@
 # [] Provide Rules API ADD/DELETE request bodies.
 # [] Known issues: Not catching all 'AND' rules.
 # [] Non-Twitter rule analysis?
-# []
+
 
 
 #### RuleChecker
@@ -25,6 +25,8 @@
 #Type of checks made:
 # [x] Explicit AND rules.
 # [ ] ORs and ANDs with no parentheses.
+#     "car OR truck ford OR general motors OR toyota" --> 14 M
+#     "(car OR truck) (ford OR "general motors" OR toyota)" --> 190K
 # [ ] ????
 
 # Run modes:
@@ -50,430 +52,17 @@
 require 'json'
 require 'csv'
 require 'logging'
+require 'base64'
+
+require_relative './pt_system'
+require_relative './pt_stream'
 
 require_relative './pt_restful'
 require_relative './pt_rules'
 require_relative './pt_logging'
 
 #-----------------------------------------------------------------------------------------------------------------------
-class PowerTrackSystem
-
-  attr_accessor :account_name, :user_name,
-                :password, :password_encoded,
-
-                :streams, #Systems own one of more data streams.
-
-
-                #Rule stats metadata.
-                :activities_before, :activities_after,
-
-                #App settings.
-                :outbox,
-                :verbose,
-
-                :logger
-
-  def initialize
-    @streams = [] #Array of stream objects.
-    @verbose = false
-  end
-
-  def check(rules_api_creds, search_api_creds)
-
-    logger.debug "Checking #{@account_name} streams..."
-
-    @streams.each do |stream|
-      stream.verbose = @verbose
-      stream.account_name = @account_name
-      stream.outbox = @outbox
-      stream.logger = @logger
-      stream.check(rules_api_creds, search_api_creds)
-    end
-
-    write_output
-
-    if @verbose then
-      puts
-      puts "Finished with #{@account_name}..."
-      puts '====================================================================='
-    end
-
-  end
-
-  #Write report text.
-  def write_output
-    puts "Writing #{@account_name} output..."
-
-    #Create output file...
-    filename = "#{@outbox}/#{@account_name}.md" #markdown
-
-    f = File.new(filename,  "w+")
-
-    f.puts "## #{@account_name} System Summary ##"
-
-    f.puts "Number of Power Track real-time streams: #{@streams.length}"
-    f.puts
-
-    @streams.each do |stream|
-      stream.write_output f
-    end
-
-    f.puts("Finished with #{@account_name} system.")
-
-    f.close
-
-  end
-end
-
-#-----------------------------------------------------------------------------------------------------------------------
-class PowerTrackStream
-
-  attr_accessor :account_name, :product, :publisher, :label,
-
-                :http, :urlRules, :urlSearch,  #need a HTTP object to make requests of
-
-                #Select Stream rule metadata.
-                :rule_set, #PT Rules object, which owns an PTRule array.
-
-                #TODO: Eliminate?
-                :rules_AND, :rules_AND_corrected,
-                :rule_count, :rule_AND_count,
-                :rule_max, :rule_length_max, :rule_length_avg,
-
-                #TODO: Push these down to Rule class?
-                :rule_max_delta, :rule_max_delta_value, :rule_max_delta_30_day, :rule_max_delta_30_day_corrected,
-                :rule_max_factor, :rule_max_factor_value, :rule_max_factor_30_day, :rule_max_factor_30_day_corrected,
-
-                #App settings.
-                :outbox,
-                :verbose,
-                :request_sleep,
-
-                :logger
-
-  REGEX_AND = /(?<!["])(AND )(?!["])/
-  COUNT_INTERVAL = 'day' #Search API count bucket size.
-
-  def initialize
-    @product = 'track' #Only product supported, only one needed.
-    @publisher = 'twitter'
-    @count_interval = 'day'
-
-    @verbose = false
-    @request_sleep = 0
-
-    @rules = [] #Array of rule objects.
-    @rules_AND = [] #Rules with explicit ANDs.
-    @rules_AND_corrected = [] #Corrected version.
-
-    @rule_length_max = 0
-    @rule_length_avg = 0.0
-
-    @http = PtRESTful.new
-    @rule_set = PTRules.new
-  end
-
-  def call_rules_api rules_api_creds
-
-    logger.debug "Retrieving rules for account: #{@account_name}..."
-
-    @http.publisher = @publisher
-    @http.url = @http.getRulesURL(@account_name, @label)
-    @http.user_name = rules_api_creds['user_name']
-    @http.password_encoded = rules_api_creds['password_encoded']
-
-    headers = {}
-    if rules_api_creds['user_name'] == 'system' then
-      headers['X-ON-BEHALF-OF-ACCOUNT'] = @account_name
-    end
-    headers['Content-Type'] = 'application/json'
-    headers['accept'] = 'application/json'
-
-    response = @http.GET(nil,headers)
-    #TODO: handle response.code > 299
-
-    return response.body
-
-  end
-
-
-  def load_rules rules_api_creds
-
-    response = call_rules_api rules_api_creds
-    rules_json = JSON.parse(response)['rules']
-    @rule_set.load_rules rules_json
-
-  end
-
-  def process_AND_rules
-  end
-
-
-  #Check the stream, do the rules analysis, etc.
-  def check(rules_api_creds, search_api_creds)
-
-    logger.debug  "Checking stream for #{@account_name}..."
-    load_rules rules_api_creds
-
-    rule_chars = 0
-    rule_length = 0
-
-    @rule_set.rules.each do |rule|
-      #puts rule.value
-
-      #Rule stats
-      rule_length = rule.value.length
-      rule_chars = rule_chars + rule_length
-
-      if rule_length > @rule_length_max then
-        @rule_length_max = rule_length
-        @rule_max = rule.value
-      end
-
-    end
-
-
-    num_AND_rules = 0
-    @rule_set.rules.each do |rule|
-
-      if rule.is_a? PT_AND_RULE then
-        num_AND_rules = num_AND_rules + 1
-      end
-
-    end
-
-    #Stream rule attributes.
-    @rule_count =@rule_set.rules.length
-    @rule_length_avg = rule_chars/ @rule_count
-    @rule_AND_count = num_AND_rules
-
-    logger.debug "Analyzing AND rules..." if @rule_AND_count > 0
-    logger.debug "Getting 30-day counts (before and after)..." if @rule_AND_count > 0
-
-    #Calculate Stream-level things around the AND-correction results.
-    rule_count_totals = 0.0
-    rule_count_corrected_totals = 0.0
-    delta = 0
-    rule_max_delta  = 0.0
-    rule_max_delta_30_day = 0
-    rule_max_delta_30_day_corrected = 0
-    rule_max_delta_value  = ''
-    factor = 0
-    rule_max_factor  = 0.0
-    rule_max_factor_30_day = 0
-    rule_max_factor_30_day_corrected = 0
-    rule_max_factor_value  = ''
-
-    @rule_set.rules.each do |rule|
-
-      if rule.is_a? PT_AND_RULE then #Handle AND rules.
-
-        #Call Search API counts for rule as originally written.
-        if rule.worksWithSearch? then
-          counts_response = get_search_counts(search_api_creds, rule.value)
-        else
-          msg = "Skipping rule, has Operators unsupported by Search API: #{rule.value}."
-          logger.info msg
-          next #skip
-        end
-
-        #Called Search API counts endpoint, but not successful.
-        if counts_response['results'].nil? or counts_response.include? 'error' or counts_response.include? 'Could not accept' then
-          msg = "Error with rule: #{rule.value}."
-          logger.info msg
-          msg = counts_response['error']['message'] if not counts_response['error']['message'].nil?
-          logger.info msg
-          next #skip
-        end
-
-        rule.count_30_day = get_count_total(counts_response)
-        rule.count_timeseries = get_count_timeseries(counts_response)
-
-        #Correct the rule.
-        #regex = /(?<!["])(AND )(?!["])/
-        rule.value_corrected = rule.value.gsub(REGEX_AND,"")
-
-        #Call Search API counts for rule as originally written.
-        counts_response = get_search_counts(search_api_creds, rule.value_corrected)
-        rule.count_30_day_corrected = get_count_total(counts_response)
-        rule.count_timeseries_corrected = get_count_timeseries(counts_response)
-
-        if @verbose then
-          puts
-          puts rule.value
-          puts rule.value_corrected
-          puts "--> 30-day count --> Before: #{separate_comma(rule.count_30_day)} | After: #{separate_comma(rule.count_30_day_corrected)}"
-          puts "                     Delta: #{separate_comma(rule.count_30_day_corrected - rule.count_30_day)} | Factor: #{'%.1f' % (rule.count_30_day_corrected/(rule.count_30_day * 1.0))}" if rule.count_30_day > 0
-        end
-
-
-        #Stream-wide stats.
-        rule_count_totals = rule_count_totals + rule.count_30_day
-        rule_count_corrected_totals = rule_count_corrected_totals + rule.count_30_day_corrected
-
-        delta = rule.count_30_day_corrected - rule.count_30_day
-        if delta > rule_max_delta then
-          rule_max_delta = delta
-          rule_max_delta_30_day = rule.count_30_day
-          rule_max_delta_30_day_corrected = rule.count_30_day_corrected
-          rule_max_delta_value = rule.value
-        end
-
-        factor = (rule.count_30_day_corrected/rule.count_30_day.to_f) if rule.count_30_day > 0
-        if factor > rule_max_factor then
-          rule_max_factor = factor
-          rule_max_factor_30_day = rule.count_30_day
-          rule_max_factor_30_day_corrected = rule.count_30_day_corrected
-          rule_max_factor_value = rule.value
-        end
-      end
-    end
-
-
-    #Harvest this stream's rule metadata.
-    @rule_count_totals = rule_count_totals
-    @rule_count_corrected_totals = rule_count_corrected_totals
-    @rule_max_delta  = rule_max_delta
-    @rule_max_delta_30_day = rule_max_delta_30_day
-    @rule_max_delta_30_day_corrected = rule_max_delta_30_day_corrected
-    @rule_max_delta_value  = rule_max_delta_value
-    @rule_max_factor  = rule_max_factor
-    @rule_max_factor_value  = rule_max_factor_value
-    @rule_max_factor_30_day = rule_max_factor_30_day
-    @rule_max_factor_30_day_corrected = rule_max_factor_30_day_corrected
-
-  end
-
-  def get_count_total(count_response)
-
-    begin
-
-      count_total = 0
-
-      results = count_response["results"]
-      results.each do |result|
-        #p  result["count"]
-        count_total = count_total + result["count"]
-      end
-
-      @count_total = count_total
-
-    rescue
-      logger.error 'ERROR calculating total count.'
-    end
-  end
-
-  def get_count_timeseries(count_response)
-
-    begin
-      timeseries = []
-
-      results = count_response["results"]
-      results.each do |result|
-        timeseries << result["count"]
-      end
-
-      timeseries
-    rescue
-      logger.error 'ERROR set count time-series.'
-    end
-  end
-
-  def get_search_counts(search_api_creds, rule)
-
-    @http.user_name = search_api_creds['user_name']
-    @http.password_encoded = search_api_creds['password_encoded']
-    @http.publisher = @publisher
-    @http.url = @http.getSearchCountURL(search_api_creds['account_name'],search_api_creds['search_label'])
-
-    #Build count request.
-    search_request = {:publisher => @publisher, :query => rule, :bucket => COUNT_INTERVAL}
-    data = JSON.generate(search_request)
-
-    response = @http.POST(data)
-    sleep @request_sleep
-
-    if response.body.include? 'Rate limit exceeded' then
-      sleep 5
-      if @verbose then
-        p "Rate limited, sleeping for 5 seconds before retrying..."
-      end
-      response = @http.POST(data) #retry
-    end
-
-    #p response.code
-
-    begin
-      response = JSON.parse(response.body)
-    rescue
-      logger.error "JSON parse error with: #{response.body}"
-      response = '{"error"}'
-    end
-
-    return response
-  end
-
-  #Write Stream report text.
-  def write_output(f=nil)
-
-    return if f.nil?
-
-    f.puts '### Stream summary ###'
-    f.puts "Endpoint: #{@publisher}/#{@product}/#{@label}.json"
-    f.puts "+ Number of rules: #{separate_comma(@rule_count)}"
-    f.puts "+ Rule average characters: #{separate_comma(@rule_length_avg)}"
-    f.puts "+ Rule maximum characters: #{separate_comma(@rule_length_max)}"
-    f.puts "+ Rule maximum value: #{@rule_max}"
-    f.puts "+ Number of AND rules: #{separate_comma(@rule_AND_count)}"
-    f.puts
-    f.puts "30-day counts before: #{separate_comma(@rule_count_totals.to_i)}" if @rule_AND_count > 0
-    f.puts "30-day counts after: #{separate_comma(@rule_count_corrected_totals.to_i)}" if @rule_AND_count > 0
-    f.puts "Rule with highest delta (#{@rule_max_delta} <= #{@rule_max_delta_30_day_corrected} - #{@rule_max_delta_30_day}): #{@rule_max_delta_value}" if @rule_AND_count > 0
-    f.puts "Rule with highest factor (#{@rule_max_factor} <= #{@rule_max_factor_30_day_corrected} / #{@rule_max_factor_30_day}): #{@rule_max_factor_value}" if @rule_AND_count > 0
-    f.puts "=============================================================================================================="
-
-
-
-
-    if @verbose then
-      puts '=============================================================================================================='
-      puts
-      puts '## Stream summary ##'
-      puts "Account/System name:#{@account_name}:"
-      puts "Number of rules: #{separate_comma(@rule_count)}"
-      puts "Rule average characters: #{separate_comma(@rule_length_avg)}"
-      puts "Rule maximum characters: #{separate_comma(@rule_length_max)}"
-      puts "Rule maximum value: #{@rule_max}"
-      puts "Number of AND rules: #{separate_comma(@rule_AND_count)}"
-      puts
-
-      puts " #{@account_name} rule metadata --------------------------------------------------"
-      puts "Longest rule has #{@rule_length_max} characters."
-      puts "Average rule has #{@rule_length_avg} characters"
-
-      puts "30-day counts before: #{separate_comma(@rule_count_totals.to_i)}" if @rule_AND_count > 0
-      puts "30-day counts after: #{separate_comma(@rule_count_corrected_totals.to_i)}" if @rule_AND_count > 0
-      puts "Rule with highest delta (#{@rule_max_delta} <= #{@rule_max_delta_30_day_corrected} - #{@rule_max_delta_30_day}): #{@rule_max_delta_value}" if @rule_AND_count > 0
-      puts "Rule with highest factor (#{@rule_max_factor} <= #{@rule_max_factor_30_day_corrected} / #{@rule_max_factor_30_day}): #{@rule_max_factor_value}" if @rule_AND_count > 0
-      puts
-      puts "=============================================================================================================="
-      puts
-    end
-
-  end
-
-  def separate_comma(number)
-    number.to_s.chars.to_a.reverse.each_slice(3).map(&:join).join(",").reverse
-  end
-
-end
-
-
-#-------------------------------------------------
-
 class RulesApp
-
-  require 'base64'
 
   attr_accessor :systems,
                 :details_to_assign,
@@ -596,7 +185,7 @@ class RulesApp
       system_names = []
       @details_to_assign.each do |details|
 
-        new_stream = PowerTrackStream.new
+        new_stream = PTStream.new
         new_stream.publisher = details['publisher']
         new_stream.label = details['label']
         new_stream.request_sleep = @request_sleep
@@ -607,7 +196,7 @@ class RulesApp
           system_names << details['account_name']
 
           #Creating a new host system.
-          system = PowerTrackSystem.new
+          system = PTSystem.new
           system.account_name = details['account_name']
           system.verbose = @verbose
           system.outbox = @outbox
@@ -626,14 +215,14 @@ class RulesApp
         end
       end
     else #Customer-mode -- have one system to load.
-      system = PowerTrackSystem.new
+      system = PTSystem.new
 
       system.verbose = @verbose
       system.logger = @logger
 
       #Create this system's streams.
       @details_to_assign.each do |details|
-        stream = PowerTrackStream.new
+        stream = PTStream.new
         stream.publisher = details['publisher']
         stream.label = details['label']
         #stream.verbose = @verbose
@@ -656,7 +245,7 @@ class RulesApp
     logging = PTLogging.new
     logging.get_config(config_file)
     @logger = logging.get_logger
-    logging.name = 'compliance_api'
+    logging.name = 'rule_checker'
 
   end
 
