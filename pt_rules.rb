@@ -1,13 +1,10 @@
 require 'logging'
 
-
 #Helpers for REGEX rule scans.
 REGEX_AND = /(?<!["])(AND )(?!["])/
 
 class PTRules
-  attr_accessor :rules, #Array of PT Rules.
-                :account_name
-
+  attr_accessor :rules #Array of PT Rules.
 
   def initialize
     @rules = []
@@ -49,7 +46,6 @@ class PTRules
     end
 
 end
-
 
 #-----------------------------------------------------------------------------------------------------------------------
 #Rule data structure. One for each rule is created. Used to store rule metadata.
@@ -115,4 +111,15 @@ class PT_AND_RULE < PTRule
     puts "Writing AND rule output:"
   end
 
+end
+
+class PT_Rule_Negation < PTRule
+  
+  attr_accessor :negation,
+                :effect
+  
+  def initialize
+    super
+  end
+  
 end
