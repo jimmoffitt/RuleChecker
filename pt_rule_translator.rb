@@ -1,5 +1,5 @@
 class PtRuleTranslator
-  attr_accessor :source_type, #'Sprinklr', 'Datasift', 'English'
+  attr_accessor :source_type, 
                 :target_type, #PowerTrack,
                 
                 #Source details
@@ -10,15 +10,16 @@ class PtRuleTranslator
                 :negation_buffer
   
   def initialize
-    @source_type = 'Sprinklr'
+    @source_type = 'custom'
     @target_type = 'PowerTrack'
     
+    #Logical mappings of source.
     @OR = 'OR'
     @AND = 'AND'
     @Quoted = '~0'
     @NOT = 'NOT'
     
-    
+    #PowerTrack parameters.
     #Long rules.
     #@length_limit = 2048
     #@positive_limit = -1 #-1 = no limit
@@ -28,7 +29,7 @@ class PtRuleTranslator
     @positive_limit = 30 
     @negative_limit = 50
     
-    @negative_limit = 100
+    @negation_buffer = 100
 
   end
   
