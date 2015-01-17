@@ -1,19 +1,20 @@
 RuleChecker
 ===========
 
-A set of tools to analyze a set of Gnip PowerTrack rules. Tools to both identify rules that result in both __less__ and __more__ tweets being delivered than intended.   
-
+A set of tools to analyze a set of Gnip PowerTrack rules. Tools to both identify rules that result in both __less__ and __more__ tweets being delivered than intended. Also anticipate tools for translating rules from other formats into the PowerTrack rules.    
 Examines PowerTrack rulesets and performs a set of analyses on them...
 
 Currently, there are tools designed to:
 * Summarize real-time rulesets, providing basic stats such as number of rules and average/longext lengths.
 * Identify rules with explicit ANDs.
     * Corrects rule and compares 'before and after' 30-day Search API counts.
-* Help access the effects of negation terms.
+* Help access the effectiveness of negation terms.
+* Translates long rules (> 17K characters) in Lucene-like syntax into PowerTrack syntax.
+ 
 * Other possibilies:
     * Rules with both ANDs and ORs with no parentheses.  
     * Missing double quotes around exact phrases.
-* Produce report-ready output rendered in markdown.
+    * Produce report-ready output rendered in markdown.
 
 
 ###Examples of 'ineffective' PowerTrack rules
