@@ -97,6 +97,8 @@ class PTRule
 
 end
 
+#====================================================
+
 class PT_AND_RULE < PTRule
 
   attr_accessor :value_corrected,
@@ -113,6 +115,7 @@ class PT_AND_RULE < PTRule
 
 end
 
+#====================================================
 class PT_Rule_Negation < PTRule
   
   attr_accessor :negation,
@@ -121,5 +124,19 @@ class PT_Rule_Negation < PTRule
   def initialize
     super
   end
-  
+
 end
+
+#====================================================
+class PT_Rule_Clause
+  attr_accessor :text,
+                :type,
+                :inidcator
+  
+  def initialize
+    @type = 'negation'
+    @indicator = '-'
+    @text = ''
+  end
+  
+end  
