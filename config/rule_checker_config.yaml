@@ -6,8 +6,8 @@ account:
   search_label: prod
 
 app:
-  out_box: ./output #'./output' is default.
-  verbose: true #When true, lots more stuff get written to System Out.
+  outbox: ./output #'./output' is default. Filename will be <ACCOUNT_NAME>_summary.md
+  verbose: false  #When true, lots more stuff get written to System Out.
   request_sleep: 1  #Set to zero will likely trigger rate-limit 429 responses.
 
 streams: [

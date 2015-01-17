@@ -13,7 +13,7 @@ class PTLogging
     @name = 'logger'
     @logger = Logging.logger(@name)
     @log_file_path = "./#{@name}.log"
-    @warn_level = 'debug'
+    @warn_level = 'info'
     @size = 10 #MB
     @keep = 2
   end
@@ -33,13 +33,10 @@ class PTLogging
     default_appender = Logging::Appenders::RollingFile.new 'default', \
          :filename => @log_file_path, :size => (@size * 1024), :keep => @keep, :safe => true, :layout => layout
 
-    @logger.add_appenders(default_appender, Logging.appenders.stdout,)
+    @logger.add_appenders(default_appender, Logging.appenders.stdout)
 
     return @logger
-
   end
-
-
 
   #Load in the configuration file details, setting many object attributes.
   def get_config(config_file)
@@ -59,7 +56,6 @@ class PTLogging
     @size = config['logging']['size']
     @keep = config['logging']['keep']
     @roll_by = config['logging']['roll_by']
-
   end
 
 end

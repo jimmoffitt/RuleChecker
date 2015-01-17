@@ -5,13 +5,6 @@ require 'json'
 require 'logging'
 require 'base64'
 
-
-class NegationRule < PTRule
-  
-  
-  
-end
-
 class PTNegationator
 
   attr_accessor :account_name, :product, :publisher, :label,
@@ -33,16 +26,6 @@ class PTNegationator
     
     @http = PtRESTful.new
     @rule_set = PTRules.new
-  end
-  
-  def load_negation_candidates
-    negations = "\"@love_absolut\" OR \"@_absolut_truth\" OR \"@absolut_blank\" OR \"@absolutamber\" OR \"@d_absolut_truth\" OR \"@elyx__\" OR \"@socallme_elyx\" OR \"elyxyak\" OR \"erotikgirls\" OR \"formel 1\" OR\"formula 1\" OR \"dj smirnoff\" OR \"dj absolut\" OR \"dj_smirnoff\" OR \"dj_smirnoff_ice\" OR \"karin smirnoff\" OR \"karina smirnoff\" OR \"katrina smirnoff\" OR \"kyza smirnoff\" OR \"oleg smirnoff\" OR \"pere smirnoff\" OR \"quick get some smirnoff ice\" OR \"red bull media\" OR \"serg smirnoff\" OR \"serg_smirnoff\" OR \"smirnoff centre\" OR \"smirnoff hotel\" OR \"smirnoff dj\" OR \"smirnoff music centre\" OR\"smirnoff turntable\" OR \"smirnoff type\" OR \"smirnoff wrote\" OR \"viagra\" OR \"victoria smirnoff\" OR \"yaakov smirnoff\" OR \"yakov smirnoff\" OR \"zmey smirnoff\" OR \"absolut nicht\" OR \"absolut nichts\"OR \"absolut repair\" OR \"absolut_blank\" OR \"absolut_truth\" OR \"absolut_watkins\" OR \"absolute_pepper\" OR \"dancing with the\" OR \"dancing with the stars\" OR \"natalia smirnoff\" OR \"chilling in the sea\" OR \"d_absolut_truth\" OR \"erotik girls\" OR \"garota_smirnoff\" OR \"nick smirnoff\" OR \"dimitri smirnoff\" OR \"diully kethellyn\" OR \"karina-smirnoff\" OR \"l'oreal\" OR \"alexander smirnoff\" OR\"minichill\" OR \"anna smirnoff\" OR \"doctor smirnoff\" OR \"penis\" OR \"socallme_elyx\" OR \"nvidea\" OR \"von smirnoff\" OR \"absolut inte\" OR \"absolut värsta\" OR \"#rasism\" OR \"doodle\" OR \"le petit\"OR \"yak\" OR \"little things i like\" OR \"mouvmatin\" OR \"arena naţională\" OR \"iphone 6\" OR \"windos\" OR \"mozilla\" OR \"http://forum.softpedia.com/\" OR \"scf\" OR sex OR \"sex video\" OR toys OR \"absolut garden\""
-    @negations = negations.split("OR")
-  end
-  
-  def load_base_rule
-    @base_rule = "absolut OR #absolut OR #absolutamber OR #absolutapeach OR #absolutberriacai OR #absolutchicago OR #absolutciron OR #absolutelyx OR #absolutgreyhound OR #absolutinspire OR #absolutkarnival"
-    #Other terms: #absolutnextframe OR #absolutoriginal OR #absolutoriginality OR #absolutoz OR #absolutraspberriOR #absoluttexas OR #absoluttune OR #absoluttune OR ( #absoluttune AND incona ) OR #absolutverticalgarden OR #allequalunderthesun OR #bottle to the extreme ~0 OR #elyx OR #jardimverticalOR #nextframe OR #transformtoday OR #verticalgarden OR ( #verticalgarden AND #absolut ) OR #wearekarnival OR absolut tune ~0 OR absoluttune OR 'absolut tune' ~0 OR 'absoluttune' OR ( 'absoluttune' AND icona ) OR ( absolut tune ~0 AND icona ) OR 'nextframe' OR nextframe OR ( 11 amazing augmented reality ads ~0 AND absolut ) OR 4 million absolutely unique ~0 OR 4 million uniquely ~0 OR 5 days la roma ~0 OR 5dayslaroma OR ( 72 transformations ~0 AND absolut AND bottle ) OR @absoluttune OR ( @absoluttune AND icona ) OR ( @blahblahblanda ANDabsolutvodka_us ) OR ( absolut AND elyx ) OR ( absolut AND glimmer ) OR ( absolut AND jay-z ) OR ( absolut AND rirkrit tiravanija ~0 ) OR absolut atelier ~0 OR ( lemon andersen ~0 AND absolut ) OR( rirkrit tiravanija ~0 AND lydmar ) OR ( rirkrit tiravanija ~0 AND moderna museet ~0 ) OR ( rirkrit tiravanija ~0 AND absolut art ~0 ) OR ( spike jonze ~0 AND geheime liebesgeschichte ~0 ) OR ( spike lee ~0 AND absolut ) OR the absolut company ~0 OR abslut apeach ~0 OR ( absoilut AND aaron koblin ~0 ) OR absolut 'mexico' ~0 OR ( absolut AND transform today ~0 ) OR absolut 100 ~0 OR absolut 100 ~0 OR ( absolut 100 ~0 AND -ich AND -es absolut ~0 AND -du absolut ~0 ) OR ( absolut AND 365 days ~0 ) OR ( absolut AND 4 milhão ~0 ) OR ( absolut AND 4 milione ~0 ) OR ( absolut AND 4 miljoen ~0 ) OR ( absolut AND 4 miljoner ~0 ) OR ( absolut AND 4 million ~0 ) OR ( absolut AND 4 millón ~0 ) OR ( absolut AND 5 days la roma ~0 ) OR absolut 72 bian ~0 OR ( absolut AND 72 transformations ~0 ) OR ( absolut AND 72bian ) OR ( absolut AND 72变 ) OR ( absolut AND ellen von unwerth ~0 ) OR ( absolut AND kate beckinsale ~0 ) OR ( absolut AND keren cytter ~0 ) OR absolut masquerade ~0 OR absolut mango ~0 OR ( absolut AND tiravanija ) OR ( absolut AND zooey deschanel ~0 ) OR absolut advertising ~0 OR ( absolut AND a unique limited edition ~0 ) OR ( absolut ANDa380 ) OR ( absolut AND aaron koblin ~0 ) OR ( absolut AND acai ) OR ( absolut AND ads ) OR ( absolut AND advertising ) OR ( absolut AND agbeviade anthony ~0 ) OR ( absolut AND airbus ) OR ( absolut AND ali larter ~0 ) OR ( absolut AND anri sala ~0 ) OR ( absolut AND apeach ) OR absolut amber ~0 OR ( absolut AND anri sala ~0 ) OR absolut apeach ~0 OR absolut art bureau ~0 OR ( absolut AND art celebration ~0 ) OR ( absolut AND art collection ~0 ) OR ( absolut AND art exhibition ~0 ) OR ( absolut AND artful bottles ~0 ) OR ( absolut AND atelier ) OR ( absolut AND augemented reality app ~0 ) OR ( absolut AND augemented reality ~0 ) OR absolut australia ~0 OR absolut azul ~0 OR absolut berri ~0 OR absolut berri acai ~0 OR absolut bian ~0 OR absolut blank ~0 ORabsolut bling ~0 OR absolut blue ~0 OR absolut brand ~0 OR absolut brings 2d to life with artist rafael ~0 OR absolut brooklyn ~0 OR absolut carnaval ~0 OR absolut carnival ~0 OR absolut celestial bars ~0 OR absolut chalk ~0 OR absolut cherrykran ~0 OR absolut chicago ~0 OR absolut citron ~0 OR absolut citron glimmer ~0 OR absolut cocktail ~0 OR absolut collection ~0 OR
   end
 
   def build_rules 
@@ -167,10 +150,14 @@ class PTNegationator
     end
   end
   
-  def check
+  def check(return_rule_set=nil)
     
-    load_base_rule
-    load_negation_candidates
+    return_rules = false
+    
+    if !return_rule_set.nil? then
+      return_rules = true
+    end
+
     build_rules
     
     #Establish static 30-day start and end times: base rule results can otherwise change during the negation checks.
@@ -191,6 +178,12 @@ class PTNegationator
 
     #Sanity-check, same results for base rules.
     counts_response = get_search_counts(@search_api_creds, @rule_set[0].value, start_time, end_time)
+    
+    if counts_response.include? 'error' then
+      puts @rule_set[0].value
+      sleep 1
+    end
+    
     puts get_count_total(counts_response)
 
     #Sort results and write output
@@ -215,9 +208,13 @@ class PTNegationator
     results_sorted.each do |result|
       puts "#{result.negation}: #{result.effect} " unless result.effect > 0 #TODO: bug alert!
     end
+
+    if return_rules == true then
+      return @rule_set
+    end
+    
   end
 
-  
 end
 
 
@@ -233,6 +230,11 @@ if __FILE__ == $0  #This script code is executed when running this file.
   #oApp.get_logger(config_file)
 
   oApp.get_app_config(config_file) #This triggers loading of streams.
+
+  negations = "\"@love_absolut\" OR \"@_absolut_truth\" OR \"@absolut_blank\" OR \"@absolutamber\" OR \"@d_absolut_truth\" OR \"@elyx__\" OR \"@socallme_elyx\" OR \"elyxyak\" OR \"erotikgirls\" OR \"formel 1\" OR\"formula 1\" OR \"dj smirnoff\" OR \"dj absolut\" OR \"dj_smirnoff\" OR \"dj_smirnoff_ice\" OR \"karin smirnoff\" OR \"karina smirnoff\" OR \"katrina smirnoff\" OR \"kyza smirnoff\" OR \"oleg smirnoff\" OR \"pere smirnoff\" OR \"quick get some smirnoff ice\" OR \"red bull media\" OR \"serg smirnoff\" OR \"serg_smirnoff\" OR \"smirnoff centre\" OR \"smirnoff hotel\" OR \"smirnoff dj\" OR \"smirnoff music centre\" OR\"smirnoff turntable\" OR \"smirnoff type\" OR \"smirnoff wrote\" OR \"viagra\" OR \"victoria smirnoff\" OR \"yaakov smirnoff\" OR \"yakov smirnoff\" OR \"zmey smirnoff\" OR \"absolut nicht\" OR \"absolut nichts\"OR \"absolut repair\" OR \"absolut_blank\" OR \"absolut_truth\" OR \"absolut_watkins\" OR \"absolute_pepper\" OR \"dancing with the\" OR \"dancing with the stars\" OR \"natalia smirnoff\" OR \"chilling in the sea\" OR \"d_absolut_truth\" OR \"erotik girls\" OR \"garota_smirnoff\" OR \"nick smirnoff\" OR \"dimitri smirnoff\" OR \"diully kethellyn\" OR \"karina-smirnoff\" OR \"l'oreal\" OR \"alexander smirnoff\" OR\"minichill\" OR \"anna smirnoff\" OR \"doctor smirnoff\" OR \"penis\" OR \"socallme_elyx\" OR \"nvidea\" OR \"von smirnoff\" OR \"absolut inte\" OR \"absolut värsta\" OR \"#rasism\" OR \"doodle\" OR \"le petit\"OR \"yak\" OR \"little things i like\" OR \"mouvmatin\" OR \"arena naţională\" OR \"iphone 6\" OR \"windos\" OR \"mozilla\" OR \"http://forum.softpedia.com/\" OR \"scf\" OR sex OR \"sex video\" OR toys OR \"absolut garden\""
+  oApp.negations = negations.split("OR")
+
+  oApp.base_rule = "absolut OR #absolut OR #absolutamber OR #absolutapeach OR #absolutberriacai OR #absolutchicago OR #absolutciron OR #absolutelyx OR #absolutgreyhound OR #absolutinspire OR #absolutkarnival"
 
   oApp.check
 
