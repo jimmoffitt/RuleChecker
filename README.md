@@ -1,7 +1,7 @@
 RuleChecker
 ===========
 
-A set of tools to analyze a set of Gnip PowerTrack rules. Tools to both identify rules that result in both __less__ and __more__ tweets being delivered than intended. Also anticipate tools for translating rules from other formats into the PowerTrack rules.    
+A set of tools to analyze a set of Gnip PowerTrack rules. Tools to identify rules that result in both __less__ and __more__ tweets being delivered than intended. Also anticipate tools for translating rules from other formats into PowerTrack rules.    
 Examines PowerTrack rulesets and performs a set of analyses on them...
 
 Currently, there are tools designed to:
