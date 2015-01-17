@@ -91,7 +91,7 @@ class PtRuleTranslator
   
   
   
-  def translate_sprinklr(rule)
+  def translate_custom(rule)
     
     #First, split rule into positive and negative sets of clauses.
     positive_or_clauses = []
@@ -222,8 +222,8 @@ class PtRuleTranslator
   end
     
   def translate_rule(rule, source_type)
-    if source_type == 'Sprinklr' then
-      translate_sprinklr(rule)
+    if source_type == 'custom' then
+      translate_custom(rule)
     end
   end  
   
@@ -237,6 +237,7 @@ if __FILE__ == $0  #This script code is executed when running this file.
   rule = '[#this OR ( #that AND #what ) OR "all and nothing" NOT anytime everything ~0]'
   
   rt = PtRuleTranslator.new
-  rt.translate_rule(rule, 'Sprinklr')
+  rt.translate_rule(rule, 'custom')
+  rt.write_results
 
 end
