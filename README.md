@@ -17,7 +17,9 @@ Currently, there are tools designed to:
     * Produce report-ready output rendered in markdown.
 
 
-###Examples of 'ineffective' PowerTrack rules
+####Examples of 'ineffective' PowerTrack rules
+
+Using explicit ANDs is likely the most common mistake when developing PowerTrack rules. Many query languages like SQL and Lucene use these operators for combining clauses. PowerTrack instead uses a space between terms.
 
 ```
 snow AND cold
