@@ -19,6 +19,8 @@ Currently, there are tools designed to:
 
 ####Examples of 'ineffective' PowerTrack rules
 
+#####Explicit ANDs
+
 Using explicit ANDs is likely the most common mistake when developing PowerTrack rules. Many query languages like SQL and Lucene use these operators for combining clauses. PowerTrack instead uses a space between terms.
 
 ```
@@ -55,4 +57,4 @@ Corrected: lang:es playa
                      Delta: 1,805,085 | Factor: 2960.2
 ```
 
-
+#####Assessing Negation Effectiveness
