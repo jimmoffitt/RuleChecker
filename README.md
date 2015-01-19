@@ -1,7 +1,7 @@
 RuleChecker
 ===========
 
-A set of tools to analyze a set of Gnip PowerTrack rules. Tools to both identify rules that result in both __less__ and __more__ tweets being delivered than intended. Also anticipate tools for translating rules from other formats into the PowerTrack rules.    
+A set of tools to analyze a set of Gnip PowerTrack rules. Tools to identify rules that result in both __less__ and __more__ tweets being delivered than intended. Also anticipate tools for translating rules from other formats into PowerTrack rules.    
 Examines PowerTrack rulesets and performs a set of analyses on them...
 
 Currently, there are tools designed to:
@@ -17,7 +17,11 @@ Currently, there are tools designed to:
     * Produce report-ready output rendered in markdown.
 
 
-###Examples of 'ineffective' PowerTrack rules
+####Examples of 'ineffective' PowerTrack rules
+
+#####Explicit ANDs
+
+Using explicit ANDs is likely the most common mistake when developing PowerTrack rules. Many query languages like SQL and Lucene use these operators for combining clauses. PowerTrack instead uses a space between terms.
 
 ```
 snow AND cold
@@ -53,4 +57,4 @@ Corrected: lang:es playa
                      Delta: 1,805,085 | Factor: 2960.2
 ```
 
-
+#####Assessing Negation Effectiveness
