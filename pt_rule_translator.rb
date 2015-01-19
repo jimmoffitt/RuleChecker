@@ -14,12 +14,13 @@ class PtRuleTranslator
                 #Source details
                 :OR, :AND, :NOT, :Quoted, 
   
-                :or_clauses_pos,
-                :or_clauses_neg,
+                :or_clauses_pos, #Arrays of OR clauses, start as source syntax, end as PT syntax. 
+                :or_clauses_neg, 
                 
-                #Target details
+                #Target PowerTrack details.
                 :length_limit, :positive_limit, :negative_limit,
-                :negation_buffer #When building rules we need to reserve space for the negations... 
+                #Negations clauses are special in that their full set needs to be treated atomically without changing source logic.
+                :negation_buffer #When first building rules we typically need to reserve space for the negations...
   
   def initialize
     @source_type = 'custom'
@@ -65,7 +66,7 @@ class PtRuleTranslator
   
   def handle_quote(clause)
     clause.strip!
-    "\"#{clause.gsub!(' ~0','"')}"
+    "\"#{clause.gsub!(' ~0','"')}"   #TODO: generalized wrt @Quoted.
   end
   
   def count_clauses(clause)
@@ -189,77 +190,7 @@ class PtRuleTranslator
 
     return translated_clauses
   end
-  
-  
-  #Builds simple ORed set PowerTrack rules...  
-  def build_pt_rules or_clauses_pos, or_clauses_neg=nil
-    
-    puts 'Building rules: '
 
-    #pt_rule ==> (pt_clauses_pos) -(pt_clauses_neg)
-    pt_clauses_pos = ''
-    pt_clauses_neg = ''
-
-    pt_rules = []
-    pt_rule = ''
-
-    #Initialize @pt_rules, about to re-generate!
-    @pt_rules = []
-    pt_rules_pos = []
-    
-    #Look at *negative* clauses first since they need to be in each rule.
-    if !or_clauses_neg.nil? then
-
-      if or_clauses_neg.length > @negative_limit and @negative_limit != -1 then
-        puts 'More negation clauses then currently supported!'
-        return
-      end
-      
-      pt_clauses_neg = or_clauses_neg.join(' OR ')
-      pt_clauses_neg = "-(#{pt_clauses_neg})"
-      @negation_buffer = pt_clauses_neg.length
-      if @negation_buffer > (0.9 * @length_limit) then 
-        puts 'Warning: only 10% of rule length available for positive clauses!'  
-      end
-    end
-    
-    
-    #Handle *positive* clauses.
-    
-    positive_length = @length_limit - @negation_buffer - 1 #Allocating a space inbetween pos/neg clauses.  
-
-    pt_rule_clauses = []
-    clauses = 0
-
-    or_clauses_pos.each do |clause|
-
-      number_of_clauses = count_clauses(clause)
-      #puts "#{clause}: with #{number_of_clauses} clauses"
-
-      #TODO: this loop logic is likely orphaning the last few clauses... 
-      #And is hardcoded to standard rules.
-      if clauses < (@positive_limit - number_of_clauses) and pt_rule.length < (positive_length - clause.length) then
-        pt_rule_clauses << clause
-        clauses = clauses + number_of_clauses
-        pt_rule = pt_rule_clauses.join(' OR ')
-      else #Reached a limit, so write positive portion of rule.
-        pt_rule_clauses << clause
-        pt_rule = pt_rule_clauses.join(' OR ')
-        #puts pt_rule
-        pt_rules_pos << pt_rule
-        #Initialize.
-        pt_rule_clauses = []
-        pt_rule = ''
-        clauses = 0
-      end
-    end
-
-    pt_rules_pos.each do |pt_rule_pos|
-      pt_rule = pt_rule_pos + pt_clauses_neg
-      @pt_rules << pt_rule
-    end
-  end
-    
   def translate_custom(rule)
 
     #Remove the [ ] that group positive/negative clauses.
