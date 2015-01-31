@@ -11,9 +11,14 @@ Rules that are detected and fixed:
  * Unquoted 'Explicit AND (and 'and')' rules.
  * Unquoted lowercase 'or' rules.
  
-Coming next?
+Coming next? (these involve the next level of scanning, and probably a lot harder 'fix' decisions.)
  * Unquoted punctuation.
- 
+
+ * Missing parentheses.
+  * May have option to add parentheses around consectutive OR clauses next to an implicit AND.   
+   *  ```ford OR carter OR bush OR clinton president``` --> 5M
+   *   ```(ford OR carter OR bush OR clinton) president``` --> 177K
+
  
  
 #####Detecting unquoted clauses: 
@@ -47,8 +52,9 @@ Coming next?
  
    end
 ``` 
- 
- ####Fixing rules
+
+
+####Fixing rules
  
  * First attempts at fixing explicit AND and lowercase or rules.
  * For AND clauses the scanning and fixing code is much the same.
@@ -265,9 +271,6 @@ ands[4] = ' RIGHT")'
 ands[5] = ' DIRECTION'
 
 ```
-
-ford OR carter OR bush OR clinton president --> 5M
-(ford OR carter OR bush OR clinton) president --> 177K
 
  
  
