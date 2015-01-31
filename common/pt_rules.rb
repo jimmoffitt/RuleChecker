@@ -231,46 +231,6 @@ class PT_RULE_Corrected < PTRule
 
 end
 
-
-#=====================================================================
-#Original rule type used for 'AND' rules. Once parent code is updated to use '_Corrected' objects, this can be deprecated.
-#'Explicit AND' rule subclass, also has metadata for corrected rule value.
-class PT_AND_RULE < PTRule
-
-  attr_accessor :value_corrected,
-                :count_30_day_corrected,
-                :count_timeseries_corrected
-
-  def initialize rule
-    super
-    super.value = rule.value
-  end
-
-  def write_output
-    puts "Writing AND rule output:"
-  end
-
-end
-
-#=====================================================================
-#Original rule type used for 'or' rules. Once parent code is updated to use '_Corrected' objects, this can be deprecated.
-#'Explicit AND' rule subclass, also has metadata for corrected rule value.
-class PT_or_RULE < PTRule
-
-  attr_accessor :value_corrected,
-                :count_30_day_corrected,
-                :count_timeseries_corrected
-
-  def initialize
-    super
-  end
-
-  def write_output
-    puts "Writing 'or' rule output:"
-  end
-
-end
-
 #====================================================
 #'Negation' rule subclass, also has (single) negation and its effect.
 #Special rule object used for negation analysis.
@@ -297,6 +257,7 @@ class PT_Negation_Test_Rule < PTRule
 end
 
 #====================================================
+#Not sure where this is going, but it is a fundamental building block of rules.
 class PT_Rule_Clause
   attr_accessor :text,
                 :type,
@@ -347,5 +308,37 @@ class PTRuleHeavy
     @effect = 0
     @top = false
   end
+
+end
+
+
+#=======================================================================================================================
+if __FILE__ == $0  #This script code is executed when running this file.
+
+  o = PTRules
+  
+  #Unquoted explicit ANDs and ands rules -------------------------------------------------------------------------------
+  r = 'these AND "this and that" AND "up and down" and "back and forth" AND "first and last"'
+  #Unquoted ANDs are special because no matter what case, they are bad.
+  
+  #Scanning for unquoted clauses. 
+  puts o.unquoted_clause? r, 'and'
+  puts o.unquoted_clause? r, 'AND'
+  
+  #Now fix that rule.
+  puts o.pt_rules.fix_AND_rule r
+  
+  #unquoted, lowercase 'or' rules --------------------------------------------------------------------------------------
+  r = 'these OR "this or that" OR "up or down" or "back or forth" OR "first or last"'
+  #ORs are special because only unquoted lowercase instances are bad.
+
+  #Scanning for unquoted clauses. 
+  puts o.pt_rules.unquoted_clause? r, 'or'
+
+  #Now fix that rule.
+  puts o.pt_rules.fix_or_rule r
+
+  #What other common mistakes should we scan for and fix?
+  puts 'done'
 
 end
