@@ -12,15 +12,25 @@ Rules that are detected and fixed:
  * Unquoted lowercase 'or' rules.
  
 Coming next? (these involve the next level of scanning, and probably a lot harder 'fix' decisions.)
- * Unquoted punctuation.
+
 
  * Missing parentheses.
   * May have option to add parentheses around consectutive OR clauses next to an implicit AND.   
    *  ```ford OR carter OR bush OR clinton president``` --> 5M
    *   ```(ford OR carter OR bush OR clinton) president``` --> 177K
 
- 
- 
+Maybe not these, not much bang for the buck:
+ * Unquoted punctuation.
+   
+   * ```santa's snow```  --> 94
+   * ```"santa's" snow```    --> 94
+   
+   * ```happy! birthday``` --> 26,925
+   * ```"happy!" birthday``` --> 26,925
+    
+   * ```coca-cola soda``` --> 2,411
+   * ```"coca-cola" soda``` --> 2,411
+
 #####Detecting unquoted clauses: 
  
  * A first attempt at a method to scan a rule for a unquoted instance of a clause.
