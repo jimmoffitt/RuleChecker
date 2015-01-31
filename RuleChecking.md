@@ -9,7 +9,12 @@ sections of rules.
  
 Rules that are detected and fixed:
  * Unquoted 'Explicit AND (and 'and')' rules.
+   * ```snow AND cold``` --> 45,775 tweets over 30-days
+   * ```snow cold``` --> 109,357
+
  * Unquoted lowercase 'or' rules.
+   * ```(snow or cold) weather``` --> 1,490 
+   * ```(snow OR cold) weather``` --> 1,008,000 
  
 Coming next? (these involve the next level of scanning, and probably a lot harder 'fix' decisions.)
 
