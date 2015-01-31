@@ -18,8 +18,10 @@ Coming next?
  
 #####Detecting unquoted clauses: 
  
- 
- 
+ * A first attempt at a method to scan a rule for a unquoted instance of a clause.
+ * This is currently case *sensitive*. Would be good to add an option to ignore case.
+ * Counts occurrences of double-quotes to know whether clause in inside or outside of closed quotes.
+  
 ```ruby
  def unquoted_clause? rule, clause
  
@@ -46,11 +48,96 @@ Coming next?
    end
 ``` 
  
+ ####Fixing rules
+ 
+ * First attempts at fixing explicit AND and lowercase or rules.
+ * For AND clauses the scanning and fixing code is much the same.
+ * For now, keeping them separate in recognition of their functional independence.
+ * Fixing 'or' clauses is much easier to fix thanks to PowerTrack conventions:
+ 
+    * keywords, hashtags, mentions, and (quoted) exact phrases are *case insensitive*.
+        * ```Please Snow More``` is the same as ```please SNOW more```
+        * ```"Coca-Cola"``` is the same as ```"coca-cola"```
+        * And relevant to this RuleChecker discussion, ```"this or that"``` is the same as ```"this OR that"```
+  
+    * 'OR' and PowerTrack Operators are *case sensitive*.
+        * PowerTrack Operators must be lower-case:
+            * ```profile_region:colorado url_contains:snow```  is valid.
+            * ```Profile_Region:colorado URL_CONTAINS:snow```  both invalid Operator names.
+        * 'OR' operator must be upper-case:
+            Examples relevant to the RuleChecker:
+            * ```(snow or cold) weather``` is NOT the same as ```(snow OR cold) weather```
+            * ```(snow or cold) weather``` --> 1,490 tweets over 30-days. 
+            * ```(snow OR cold) weather``` --> 1,008,000 tweets.
+ 
+ ```Ruby
+ #Only want to remove unquoted ANDs.
+   def fix_AND_rule rule
+ 
+     clauses = rule.scan('AND').count + rule.scan('and').count
+     return rule if clauses == 0
+ 
+     remove_AND_indices = []
+ 
+     parts = rule.split(/AND|and/)\
+ 
+     quotes = 0
+     quotes_total = 0
+ 
+     parts.each_with_index do |part, index|
+ 
+       quotes = part.scan(/"/).count
+       quotes_total = quotes_total + quotes
+ 
+       if quotes_total.even? and index < clauses and part != "" then  #Then we have a unquoted clause.
+         #This is unquoted and thus we want to remove it.
+         remove_AND_indices << index
+       end
+     end
+ 
+     #Reassemble rule, removing unquoted ANDs
+ 
+     new_rule = parts[0].strip
+ 
+     parts.each_with_index do |part, index|
+ 
+       if index > 0 then
+         if remove_AND_indices.include? index then
+           new_rule = new_rule + ' ' + part.strip
+         elsif index < clauses then
+           new_rule = new_rule +  ' ' + part.strip + ' and'
+         else
+           new_rule = new_rule +  ' ' + part.strip
+         end
+       end
+     end
+ 
+     new_rule
+ 
+   end
+ 
+   #Finding unquoted, lowercase 'or' rules is easy.
+   #Just uppercase them. Quoted 'or' that are uppercased will not effect filtering performance.
+   def fix_or_rule rule
+ 
+     clauses = rule.scan('or').count
+     return rule if clauses == 0
+ 
+     rule.gsub!('or','OR')
+ 
+   end
+```
  
  
+ 
+ 
+ 
+ 
+ 
+####Prototyping notes: 
   
 
-####Quoted or unquoted ANDs
+#####Quoted or unquoted ANDs
 
  rule: ```one AND (\"this and that\" OR \"up AND down\" OR \"left and right\") AND direction```
  
