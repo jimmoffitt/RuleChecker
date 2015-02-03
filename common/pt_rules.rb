@@ -1,19 +1,16 @@
 require 'logging'
 
-#Owns an array of PowerTrack rules.
-#Knows how to scan and fix PowerTrack rules. 
+#Helper class!
+#Knows how to scan and fix PowerTrack rules.
 #Currently looks for and corrects these common types of bad rules:
 #  Explicit ANDs.
 #  Lowercase, unquoted 'or's.
 
-
-##TODO: Helpers for REGEX rule scans.
-REGEX_AND = /(?<!["])(AND )(?!["])/
-REGEX_or = /(?<!["])(or )(?!["])/
-
-#Host, holder, and helper class!
 class PTRules
 
+  ##TODO: Helpers for REGEX rule scans. Not used currently.
+  REGEX_AND = /(?<!["])(AND )(?!["])/
+  REGEX_or = /(?<!["])(or )(?!["])/
 
   def load_rules(rules_array) #<- Rules API JSON array.
     
