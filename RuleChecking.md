@@ -9,13 +9,33 @@ sections of rules.
  
 Rules that are detected and fixed:
  * Unquoted 'Explicit AND (and 'and')' rules.
+   * ```snow AND cold``` --> 45,775 tweets over 30-days
+   * ```snow cold``` --> 109,357
+
  * Unquoted lowercase 'or' rules.
+   * ```(snow or cold) weather``` --> 1,490 
+   * ```(snow OR cold) weather``` --> 1,008,000 
  
-Coming next?
+Coming next? (these involve the next level of scanning, and probably a lot harder 'fix' decisions.)
+
+
+ * Missing parentheses.
+  * May have option to add parentheses around consectutive OR clauses next to an implicit AND.   
+   *  ```ford OR carter OR bush OR clinton president``` --> 5M
+   *   ```(ford OR carter OR bush OR clinton) president``` --> 177K
+
+Maybe not these, not much bang for the buck:
  * Unquoted punctuation.
- 
- 
- 
+   
+   * ```santa's snow```  --> 94
+   * ```"santa's" snow```    --> 94
+   
+   * ```happy! birthday``` --> 26,925
+   * ```"happy!" birthday``` --> 26,925
+    
+   * ```coca-cola soda``` --> 2,411
+   * ```"coca-cola" soda``` --> 2,411
+
 #####Detecting unquoted clauses: 
  
  * A first attempt at a method to scan a rule for a unquoted instance of a clause.
@@ -47,8 +67,9 @@ Coming next?
  
    end
 ``` 
- 
- ####Fixing rules
+
+
+####Fixing rules
  
  * First attempts at fixing explicit AND and lowercase or rules.
  * For AND clauses the scanning and fixing code is much the same.
@@ -265,9 +286,6 @@ ands[4] = ' RIGHT")'
 ands[5] = ' DIRECTION'
 
 ```
-
-ford OR carter OR bush OR clinton president --> 5M
-(ford OR carter OR bush OR clinton) president --> 177K
 
  
  
