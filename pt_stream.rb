@@ -137,6 +137,11 @@ class PTStream
   end
   
   def check_corrections rules_corrected, search_api_creds
+    
+    return if rules_corrected.length == 0
+
+    logger.debug "Analyzing #{rules_corrected.length} 'corrected' rules."
+    logger.debug "Getting 30-day counts (before and after)..."
 
     #Analyze Corrected rules.
     rules_corrected.each do |rule|
@@ -250,26 +255,30 @@ class PTStream
     f.puts '### Stream summary ###'
     f.puts "Endpoint: #{@publisher}/#{@product}/#{@label}.json"
     f.puts
-    f.puts "+ Number of rules: #{separate_comma(@rule_count)}"
-    f.puts "+ Rule average characters: #{separate_comma(@rule_length_avg)}"
-    f.puts "+ Rule maximum characters: #{separate_comma(@rule_length_max)}"
-    f.puts "+ Rule maximum value: #{@rule_max}"
-    f.puts "+ Number of AND rules: #{separate_comma(@rule_AND_count)}"
+    f.puts "+ Number of rules: #{separate_comma(@rule_stats['rule_count'])}"
+    f.puts "+ Rule average characters: #{separate_comma(@rule_stats['rule_length_avg'])}"
+    f.puts "+ Rule maximum characters: #{separate_comma(@rule_stats['rule_length_max'])}"
+    f.puts "+ Rule value with maximum characters: #{@rule_stats['rule_value_max']}"
+    f.puts "+ Number of AND rules: #{separate_comma(@rule_stats['rules_AND'])}"
+    f.puts "+ Number of 'or' rules: #{separate_comma(@rule_stats['rules_or'])}"
+
     f.puts
-    f.puts "+ 30-day counts before: #{separate_comma(@rule_count_totals.to_i)}" if @rule_AND_count > 0
-    f.puts "+ 30-day counts after: #{separate_comma(@rule_count_corrected_totals.to_i)}" if @rule_AND_count > 0
-    f.puts "+ Rule with highest delta (#{@rule_max_delta} <= #{@rule_max_delta_30_day_corrected} - #{@rule_max_delta_30_day}): #{@rule_max_delta_value}" if @rule_AND_count > 0
-    f.puts "+ Rule with highest factor (#{@rule_max_factor} <= #{@rule_max_factor_30_day_corrected} / #{@rule_max_factor_30_day}): #{@rule_max_factor_value}" if @rule_AND_count > 0
+    f.puts "+ 30-day counts before: #{separate_comma(@rule_stats['rule_count_totals'].to_i)}" if (@pt_rules_corrected.length) > 0
+    f.puts "+ 30-day counts after: #{separate_comma(@rule_stats['rule_count_corrected_totals'].to_i)}" if (@pt_rules_corrected.length) > 0
+    f.puts "+ Rule with highest delta (#{@rule_stats['rule_max_delta']} <= #{@rule_stats['rule_max_delta_30_day_corrected']} - #{@rule_stats['rule_max_delta_30_day']}): #{@rule_stats['rule_max_delta_value']}" if (@pt_rules_corrected.length) > 0
+    f.puts "+ Rule with highest factor (#{@rule_stats['rule_max_factor']} <= #{@rule_stats['rule_max_factor_30_day_corrected']} / #{@rule_stats['rule_max_factor_30_day']}): #{@rule_stats['rule_max_factor_value']}" if (@pt_rules_corrected.length) > 0
     f.puts
 
-    f.puts "#### AND Rule analysis:"
+    f.puts "#### Corrected rule analysis:"
+    
+    spaces = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
 
     @pt_rules_corrected.each do |rule|
       f.puts
-      f.puts rule.value + '\n'
-      f.puts rule.value_corrected
-      f.puts "--> 30-day count --> Before: #{separate_comma(rule.count_30_day)} | After: #{separate_comma(rule.count_30_day_corrected)}"
-      f.puts "                     Delta: #{separate_comma(rule.count_30_day_corrected - rule.count_30_day)} | Factor: #{'%.1f' % (rule.count_30_day_corrected/(rule.count_30_day * 1.0))}" if rule.count_30_day > 0
+      f.puts rule.value + '  <br>'
+      f.puts rule.value_corrected + '  <br>'
+      f.puts "--> 30-day counts --> Before: #{separate_comma(rule.count_30_day)} | After: #{separate_comma(rule.count_30_day_corrected)} <br>"
+      f.puts "#{spaces}Delta: #{separate_comma(rule.count_30_day_corrected - rule.count_30_day)} | Factor: #{'%.1f' % (rule.count_30_day_corrected/(rule.count_30_day * 1.0))}" if rule.count_30_day > 0
       f.puts
      end
 
@@ -278,21 +287,22 @@ class PTStream
       puts
       puts '## Stream summary ##'
       puts "Account/System name:#{@account_name}:"
-      puts "Number of rules: #{separate_comma(@rule_count)}"
-      puts "Rule average characters: #{separate_comma(@rule_length_avg)}"
-      puts "Rule maximum characters: #{separate_comma(@rule_length_max)}"
-      puts "Rule maximum value: #{@rule_max}"
-      puts "Number of AND rules: #{separate_comma(@rule_AND_count)}"
+      puts "Number of rules: #{separate_comma(@rule_stats['rule_count'])}"
+      puts "Rule average characters: #{separate_comma(@rule_stats['rule_length_avg'])}"
+      puts "Rule maximum characters: #{separate_comma(@rule_stats['rule_length_max'])}"
+      puts "Rule maximum value: #{@rule_stats['rule_value_max']}"
+      puts "Number of AND rules: #{separate_comma(@rule_stats['rules_AND'])}"
+      puts "Number of 'or' rules: #{separate_comma(@rule_stats['rules_or'])}"
       puts
 
       puts " #{@account_name} rule metadata --------------------------------------------------"
-      puts "Longest rule has #{@rule_length_max} characters."
-      puts "Average rule has #{@rule_length_avg} characters"
+      puts "Longest rule has #{@rule_stats['rule_length_max']} characters."
+      puts "Average rule has #{@rule_stats['rule_length_avg']} characters"
 
-      puts "30-day counts before: #{separate_comma(@rule_count_totals.to_i)}" if @rule_AND_count > 0
-      puts "30-day counts after: #{separate_comma(@rule_count_corrected_totals.to_i)}" if @rule_AND_count > 0
-      puts "Rule with highest delta (#{@rule_max_delta} <= #{@rule_max_delta_30_day_corrected} - #{@rule_max_delta_30_day}): #{@rule_max_delta_value}" if @rule_AND_count > 0
-      puts "Rule with highest factor (#{@rule_max_factor} <= #{@rule_max_factor_30_day_corrected} / #{@rule_max_factor_30_day}): #{@rule_max_factor_value}" if @rule_AND_count > 0
+      puts "30-day counts before: #{separate_comma(@rule_stats['rule_count_totals'].to_i)}" if (@pt_rules_corrected.length) > 0
+      puts "30-day counts after: #{separate_comma(@rule_stats['rule_count_corrected_totals'].to_i)}" if (@pt_rules_corrected.length) > 0
+      puts "Rule with highest delta (#{@rule_stats['rule_max_delta']} <= #{@rule_stats['rule_max_delta_30_day_corrected']} - #{@rule_stats['rule_max_delta_30_day']}): #{@rule_stats['rule_max_delta_value']}" if (@pt_rules_corrected.length) > 0
+      puts "Rule with highest factor (#{@rule_stats['rule_max_factor']} <= #{@rule_stats['rule_max_factor_30_day_corrected']} / #{@rule_stats['rule_max_factor_30_day']}): #{@rule_stats['rule_max_factor_value']}" if (@pt_rules_corrected.length) > 0
       puts
       puts "=============================================================================================================="
       puts
