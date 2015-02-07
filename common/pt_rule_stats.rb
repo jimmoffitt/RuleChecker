@@ -1,21 +1,12 @@
 class PTRuleStats
   
-  attr_accessor :set_name, :set_type,
+  attr_accessor :set_name, 
+                :set_type,
                 :stats,
-                
                 
                 :sum, :max, :min, :average,
                 :rule_value_max, :rule_value_min,
-                :values,
-
-
-      :rule_count, :rule_AND_count,
-      :rule_max, :rule_length_max, :rule_length_avg,
-
-      #TODO: Push these down to Rule class?
-      :rule_max_delta, :rule_max_delta_value, :rule_max_delta_30_day, :rule_max_delta_30_day_corrected,
-      :rule_max_factor, :rule_max_factor_value, :rule_max_factor_30_day, :rule_max_factor_30_day_corrected,
-
+                :values
 
   def initialize
     
@@ -50,49 +41,32 @@ class PTRuleStats
     return @values.sum/@values.length
     
   end
-  
-  
+
   def get_corrected_stats rules
 
-
-    counts = PTStats.new
-    delta = PTStats.new
-    factor = PTStats.new
-
-
-    #------------------------------------------------
-
-    #Stream rule attributes.
-    puts "Number of corrected rules to check: #{@pt_rules_corrected.length}"
+    puts "Number of corrected rules checked: #{rules.length}"
 
     #-------------------------------------
     #AND Rules.
     rules_AND = 0
-    @pt_rules_corrected.each do |rule|
+    rules.each do |rule|
       if rule.type.include? 'AND' then
         rules_AND = rules_AND + 1
       end
     end
-    puts "Number of AND rules: #{rules_AND}"
+    @stats['rules_AND'] = rules_AND
 
     #or Rules.
     rules_or = 0
-    @pt_rules_corrected.each do |rule|
-      if rule.type.include? 'unqoted or' then
+    rules.each do |rule|
+      if rule.type.include? 'unquoted or' then
         rules_or = rules_or + 1
       end
     end
-
-    puts "Number of lowercase 'or' rules: #{rules_or}"
+    @stats['rules_or'] = rules_or
     #-------------------------------------
 
-    logger.debug "Analyzing AND rules..." if rules_AND > 0
-    logger.debug "Getting 30-day counts (before and after)..." if rules_AND > 0
-    logger.debug "Analyzing 'or' rules..." if rules_or > 0
-    logger.debug "Getting 30-day counts (before and after)..." if rules_or > 0
-
-
-    #Calculate Stream-level things around the AND-correction results.
+    #Calculate rule set things around the correction results.
     rule_count_totals = 0.0
     rule_count_corrected_totals = 0.0
     delta = 0
@@ -106,48 +80,64 @@ class PTRuleStats
     rule_max_factor_30_day_corrected = 0
     rule_max_factor_value  = ''
 
+    rules.each do |rule|
 
-    #Stream-wide stats.
-    rule_count_totals = rule_count_totals + rule.count_30_day
-    rule_count_corrected_totals = rule_count_corrected_totals + rule.count_30_day_corrected
+      begin
+        #Stream-wide stats.
+        rule_count_totals = rule_count_totals + rule.count_30_day
 
-    delta = rule.count_30_day_corrected - rule.count_30_day
-    if delta > rule_max_delta then
-      rule_max_delta = delta
-      rule_max_delta_30_day = rule.count_30_day
-      rule_max_delta_30_day_corrected = rule.count_30_day_corrected
-      rule_max_delta_value = rule.value
+        #TODO: kludge alert!
+        if (rule.count_30_day_corrected == true or rule.count_30_day_corrected == false) then
+          rule.count_30_day_corrected = 0.0
+        end
+
+        rule_count_corrected_totals = rule_count_corrected_totals + rule.count_30_day_corrected
+    
+        delta = rule.count_30_day_corrected - rule.count_30_day
+        if delta > rule_max_delta then
+          rule_max_delta = delta
+          rule_max_delta_30_day = rule.count_30_day
+          rule_max_delta_30_day_corrected = rule.count_30_day_corrected
+          rule_max_delta_value = rule.value
+        end
+    
+        factor = (rule.count_30_day_corrected/rule.count_30_day.to_f) if rule.count_30_day > 0
+        if factor > rule_max_factor then
+          rule_max_factor = factor
+          rule_max_factor_30_day = rule.count_30_day
+          rule_max_factor_30_day_corrected = rule.count_30_day_corrected
+          rule_max_factor_value = rule.value
+        end
+  
+        if @verbose then
+          puts
+          puts rule.value
+          puts rule.value_corrected
+          puts "--> 30-day count --> Before: #{separate_comma(rule.count_30_day)} | After: #{separate_comma(rule.count_30_day_corrected)}"
+          puts "                     Delta: #{separate_comma(rule.count_30_day_corrected - rule.count_30_day)} | Factor: #{'%.1f' % (rule.count_30_day_corrected/(rule.count_30_day * 1.0))}" if rule.count_30_day > 0
+        end
+          
+      rescue
+        puts 'Something went wrong.'
+        next
+      end  
+        
+        
     end
-
-    factor = (rule.count_30_day_corrected/rule.count_30_day.to_f) if rule.count_30_day > 0
-    if factor > rule_max_factor then
-      rule_max_factor = factor
-      rule_max_factor_30_day = rule.count_30_day
-      rule_max_factor_30_day_corrected = rule.count_30_day_corrected
-      rule_max_factor_value = rule.value
-    end
-
-
-    if @verbose then
-      puts
-      puts rule.value
-      puts rule.value_corrected
-      puts "--> 30-day count --> Before: #{separate_comma(rule.count_30_day)} | After: #{separate_comma(rule.count_30_day_corrected)}"
-      puts "                     Delta: #{separate_comma(rule.count_30_day_corrected - rule.count_30_day)} | Factor: #{'%.1f' % (rule.count_30_day_corrected/(rule.count_30_day * 1.0))}" if rule.count_30_day > 0
-    end
-
 
     #Harvest this stream's rule metadata.
-    @rule_count_totals = rule_count_totals
-    @rule_count_corrected_totals = rule_count_corrected_totals
-    @rule_max_delta  = rule_max_delta
-    @rule_max_delta_30_day = rule_max_delta_30_day
-    @rule_max_delta_30_day_corrected = rule_max_delta_30_day_corrected
-    @rule_max_delta_value  = rule_max_delta_value
-    @rule_max_factor  = rule_max_factor
-    @rule_max_factor_value  = rule_max_factor_value
-    @rule_max_factor_30_day = rule_max_factor_30_day
-    @rule_max_factor_30_day_corrected = rule_max_factor_30_day_corrected
+    @stats['rule_count_totals'] = rule_count_totals
+    @stats['rule_count_corrected_totals'] = rule_count_corrected_totals
+    @stats['rule_max_delta']  = rule_max_delta
+    @stats['rule_max_delta_30_day'] = rule_max_delta_30_day
+    @stats['rule_max_delta_30_day_corrected'] = rule_max_delta_30_day_corrected
+    @stats['rule_max_delta_value']  = rule_max_delta_value
+    @stats['rule_max_factor']  = rule_max_factor
+    @stats['rule_max_factor_value']  = rule_max_factor_value
+    @stats['rule_max_factor_30_day'] = rule_max_factor_30_day
+    @stats['rule_max_factor_30_day_corrected'] = rule_max_factor_30_day_corrected
+    
+    @stats
 
   end
   
@@ -176,7 +166,7 @@ class PTRuleStats
     @stats['rule_count'] = rules.length
     @stats['rule_length_max'] = max_length
     @stats['rule_value_max'] = rule_value_max
-    @stats['rule_length_avg'] = total_length / rules.length
+    @stats['rule_length_avg'] = total_length / rules.length if rules.length > 0
   
     @stats
   

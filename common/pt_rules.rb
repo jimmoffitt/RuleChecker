@@ -41,7 +41,7 @@ class PTRules
 
   def unquoted_clause? rule, clause
 
-    clauses = rule.scan(clause).count
+    clauses = rule.scan(" #{clause} ").count
     return false if clauses == 0
 
     parts = rule.split(" #{clause} ")
@@ -114,6 +114,9 @@ class PTRules
   #Finding unquoted, lowercase 'or' rules is easy.
   #Just uppercase them. Quoted 'or' that are uppercased will not effect filtering performance.
   def fix_or_rule rule
+    
+    return rule if rule.downcase.include? 'portland' or rule.downcase.include? 'bend'
+    
     clauses = rule.scan(' or ').count
     return rule if clauses == 0
 
@@ -145,7 +148,7 @@ class PTRule
 
   def initialize
     @interval = 'day'
-    @count_30_day = -1 #Never discovered.
+    @count_30_day = 0.0 #Not discovered.
     @count_timeseries = []
   end
 
@@ -165,6 +168,8 @@ class PT_RULE_Corrected < PTRule
 
   def initialize
     super
+    @count_30_day_corrected = 0.0 #Not discovered.
+    @count_timeseries_corrected = []
     @type = [] #'AND', 'or', 'missing_parens', possibly an array of issues.
   end
 
@@ -197,7 +202,7 @@ class PT_Negation_Test_Rule < PTRule
   def initialize
     super
     @negation = ''
-    @effect = 0
+    @effect = 0.0
     @top = false
   end
 
@@ -282,9 +287,14 @@ end
 #=======================================================================================================================
 if __FILE__ == $0  #This script code is executed when running this file.
 
-  o = PTRules
+  o = PTRules.new
   
   #Unquoted explicit ANDs and ands rules -------------------------------------------------------------------------------
+  r = 'wireless "EDMUNDS AND WILLIAMS" (lang:en OR (-has:lang -has:lang) OR twitter_lang:en OR twitter_lang:und) -deals -sale -Samsung -Obama -Amazon -salary -employee -progarmmers'
+  puts o.unquoted_clause? r, 'and'
+  puts o.unquoted_clause? r, 'AND'
+  
+
   r = 'these AND "this and that" AND "up and down" and "back and forth" AND "first and last"'
   #Unquoted ANDs are special because no matter what case, they are bad.
   
