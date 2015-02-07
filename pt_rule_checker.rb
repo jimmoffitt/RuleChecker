@@ -3,12 +3,12 @@
 #TODO:
 # [] Design output support. markdown.
 # [] Provide Rules API ADD/DELETE request bodies.
-# [] Known issues: Not catching all 'AND' rules.
+# [x] Known issues: Not catching all 'AND' rules.
 # [] Non-Twitter rule analysis?
 
 
 
-#### RuleChecker
+#### RuleTranslator
 # Attempts to assess the 'effectiveness' of PowerTrack rules.
 
 # All configuration details are provided in a local config.yaml file.
@@ -57,12 +57,12 @@ require 'base64'
 require_relative './pt_system'
 require_relative './pt_stream'
 
-require_relative './pt_restful'
-require_relative './pt_rules'
-require_relative './pt_logging'
+require_relative './common/pt_restful'
+require_relative './common/pt_rules'
+require_relative './common/pt_logging'
 
 #-----------------------------------------------------------------------------------------------------------------------
-class RulesApp
+class PTRuleChecker
 
   attr_accessor :systems,
                 :details_to_assign,
@@ -236,7 +236,13 @@ class RulesApp
 
   def check_systems
     @systems.each do |system|
-      system.check @rules_api_creds, @search_api_creds
+      system.check_rules @rules_api_creds, @search_api_creds
+    end
+  end
+  
+  def make_rules_api_json
+    @systems.each do |system|
+      system.make_rules_api_json
     end
   end
 
@@ -258,15 +264,17 @@ if __FILE__ == $0  #This script code is executed when running this file.
   #TODO: look for any '*config.yaml' file in app directory.
   config_file = './config/config_private_internal.yaml'
 
-  oApp = RulesApp.new()
+  oApp = PTRuleChecker.new()
 
   oApp.get_logger(config_file)
 
-  oApp.get_app_config(config_file) #This triggers loading of streams.
+  oApp.get_app_config(config_file)
 
   oApp.load_systems_and_streams #Based on streams loaded.
 
   oApp.check_systems
+  
+  oApp.make_rules_api_json
 
 end
 
