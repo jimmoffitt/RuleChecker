@@ -6,6 +6,8 @@ require_relative './common/pt_rule_stats'  #--> Various stream rule stats.
 require_relative './common/pt_restful' #--> Understands Rules and Search APIs.
 require_relative './common/pt_logging' 
 
+require 'json'
+
 class PTStream
 
   attr_accessor :account_name, :product, :publisher, :label,
@@ -15,6 +17,7 @@ class PTStream
                 #Select Stream rule metadata.
                 :pt_rules, #PT Rules object, which owns an PTRule array.
                 :pt_rules_corrected,
+                :pt_rules_non_search, #Flagging suspect rules that can not be used with Search API.
                 
                 :pt_rule_stats, #Helper class.
                 :rule_stats,
@@ -38,6 +41,7 @@ class PTStream
 
     @pt_rules = [] #Array of rule objects.
     @pt_rules_corrected = []
+    @pt_rules_non_search = []
     @pt_rule_helper = PTRules.new
         
     @save_ok_rules = false
@@ -77,6 +81,8 @@ class PTStream
 
   def load_rules rules_api_creds
 
+    puts "Loading rules..." if @verbose
+
     response = call_rules_api rules_api_creds
     rules_json = JSON.parse(response)['rules']
     @pt_rules = @pt_rule_helper.load_rules rules_json
@@ -85,6 +91,8 @@ class PTStream
 
   def identify_bad_rules rules
     
+    puts "Scanning for bad rules..." if @verbose
+    
     bad_rules = []
 
     rules.each do |rule|
@@ -92,7 +100,9 @@ class PTStream
       if @pt_rule_helper.unquoted_clause? rule.value, 'AND' or @pt_rule_helper.unquoted_clause? rule.value, 'and' then
         bad_rule = PT_RULE_Corrected.new
         bad_rule.value = rule.value
+        bad_rule.tag = rule.tag
         bad_rule.type << 'AND'
+        
         bad_rules << bad_rule
       end
 
@@ -101,6 +111,7 @@ class PTStream
       if @pt_rule_helper.unquoted_clause? rule.value, 'or' then
         bad_rule = PT_RULE_Corrected.new
         bad_rule.value = rule.value
+        bad_rule.tag = rule.tag
         bad_rule.type << 'unquoted or'
 
         bad_rules << bad_rule     
@@ -113,11 +124,15 @@ class PTStream
       # AND and OR without '(' and ')'
     end
     
+    puts "#{bad_rules.length} bad rules..." if @verbose
+    
     return bad_rules      
     
   end
 
   def correct_bad_rules rules
+
+    puts "Correcting bad rules..." if @verbose
 
     rules.each do |rule|
       if rule.type.include? 'AND' then
@@ -143,6 +158,8 @@ class PTStream
     logger.debug "Analyzing #{rules_corrected.length} 'corrected' rules."
     logger.debug "Getting 30-day counts (before and after)..."
 
+    puts "Starting Search API requests... Getting 30-day counts for original and 'corrected' rules..." if @verbose
+
     #Analyze Corrected rules.
     rules_corrected.each do |rule|
 
@@ -150,6 +167,7 @@ class PTStream
         counts_response = get_search_counts(search_api_creds, rule.value)
       else
         msg = "Skipping rule, has Operators unsupported by Search API: #{rule.value}."
+        @pt_rules_non_search << rule
         logger.info msg
         next #skip
       end
@@ -158,6 +176,7 @@ class PTStream
       if counts_response['results'].nil? or counts_response.include? 'error' or counts_response.include? 'Could not accept' then
         msg = "Error with rule: #{rule.value}."
         logger.error msg
+        puts msg
         msg = counts_response['error']['message'] if not counts_response['error']['message'].nil?
         logger.error msg
         next #skip
@@ -168,6 +187,16 @@ class PTStream
 
       #Call Search API counts for rule as originally written.
       counts_response = get_search_counts(search_api_creds, rule.value_corrected)
+
+      #Called Search API counts endpoint, but not successful.
+      if counts_response['results'].nil? or counts_response.include? 'error' or counts_response.include? 'Could not accept' then
+        msg = "Error with corrected rule: #{rule.value}."
+        logger.error msg
+        puts msg
+        msg = counts_response['error']['message'] if not counts_response['error']['message'].nil?
+        logger.error msg
+        next #skip
+      end
 
       rule.count_30_day_corrected = get_count_total(counts_response)
       rule.count_timeseries_corrected = get_count_timeseries(counts_response) if @include_rule_count_timeseries
@@ -215,6 +244,8 @@ class PTStream
 
   def get_search_counts(search_api_creds, rule)
 
+    puts "Getting Search API 30-day counts for rule: #{rule}" if @verbose
+
     @http.user_name = search_api_creds['user_name']
     @http.password_encoded = search_api_creds['password_encoded']
     @http.publisher = @publisher
@@ -252,6 +283,8 @@ class PTStream
 
     return if f.nil?
 
+    puts "Writing Stream output..." if @verbose
+
     f.puts '### Stream summary ###'
     f.puts "Endpoint: #{@publisher}/#{@product}/#{@label}.json"
     f.puts
@@ -261,27 +294,43 @@ class PTStream
     f.puts "+ Rule value with maximum characters: #{@rule_stats['rule_value_max']}"
     f.puts "+ Number of AND rules: #{separate_comma(@rule_stats['rules_AND'])}"
     f.puts "+ Number of 'or' rules: #{separate_comma(@rule_stats['rules_or'])}"
-
-    f.puts
-    f.puts "+ 30-day counts before: #{separate_comma(@rule_stats['rule_count_totals'].to_i)}" if (@pt_rules_corrected.length) > 0
-    f.puts "+ 30-day counts after: #{separate_comma(@rule_stats['rule_count_corrected_totals'].to_i)}" if (@pt_rules_corrected.length) > 0
-    f.puts "+ Rule with highest delta (#{@rule_stats['rule_max_delta']} <= #{@rule_stats['rule_max_delta_30_day_corrected']} - #{@rule_stats['rule_max_delta_30_day']}): #{@rule_stats['rule_max_delta_value']}" if (@pt_rules_corrected.length) > 0
-    f.puts "+ Rule with highest factor (#{@rule_stats['rule_max_factor']} <= #{@rule_stats['rule_max_factor_30_day_corrected']} / #{@rule_stats['rule_max_factor_30_day']}): #{@rule_stats['rule_max_factor_value']}" if (@pt_rules_corrected.length) > 0
     f.puts
 
-    f.puts "#### Corrected rule analysis:"
+    if !@pt_rules_corrected.nil? then 
+      f.puts "+ 30-day counts before: #{separate_comma(@rule_stats['rule_count_totals'].to_i)}" if (@pt_rules_corrected.length) > 0
+      f.puts "+ 30-day counts after: #{separate_comma(@rule_stats['rule_count_corrected_totals'].to_i)}" if (@pt_rules_corrected.length) > 0
+      f.puts "+ Rule with highest delta (#{separate_comma(@rule_stats['rule_max_delta'])} <= #{separate_comma(@rule_stats['rule_max_delta_30_day_corrected'])} - #{separate_comma(@rule_stats['rule_max_delta_30_day'])}): #{@rule_stats['rule_max_delta_value']}" if (@pt_rules_corrected.length) > 0
+      f.puts "+ Rule with highest factor (#{separate_comma(@rule_stats['rule_max_factor'])} <= #{separate_comma(@rule_stats['rule_max_factor_30_day_corrected'])} / #{separate_comma(@rule_stats['rule_max_factor_30_day'])}): #{@rule_stats['rule_max_factor_value']}" if (@pt_rules_corrected.length) > 0
+      f.puts
+  
+      f.puts "#### Corrected rule analysis:"
+      
+      spaces = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+  
+      @pt_rules_corrected.each do |rule|
+        f.puts
+        f.puts rule.value + '  <br>'
+        f.puts rule.value_corrected + '  <br>'
+        f.puts "--> 30-day counts --> Before: #{separate_comma(rule.count_30_day)} | After: #{separate_comma(rule.count_30_day_corrected)} <br>"
+        f.puts "#{spaces}Delta: #{separate_comma(rule.count_30_day_corrected - rule.count_30_day)} | Factor: #{'%.1f' % (rule.count_30_day_corrected/(rule.count_30_day * 1.0))}" if rule.count_30_day > 0
+        f.puts
+       end
+    end
+
+
+    if !@pt_rules_non_search.nil? and @pt_rules_non_search.length > 0 then
+      f.puts
+      f.puts
+      f.puts "Here are #{@pt_rules_non_search.length} rules that could not be tested with the Search API:"
+      f.puts
+      @pt_rules_non_search.each do |rule|
+        f.puts "Original rule: #{rule.value}"
+        f.puts "Suggested rule: #{rule.value_corrected}"
+        f.puts
+      end
+    end
     
-    spaces = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
-
-    @pt_rules_corrected.each do |rule|
-      f.puts
-      f.puts rule.value + '  <br>'
-      f.puts rule.value_corrected + '  <br>'
-      f.puts "--> 30-day counts --> Before: #{separate_comma(rule.count_30_day)} | After: #{separate_comma(rule.count_30_day_corrected)} <br>"
-      f.puts "#{spaces}Delta: #{separate_comma(rule.count_30_day_corrected - rule.count_30_day)} | Factor: #{'%.1f' % (rule.count_30_day_corrected/(rule.count_30_day * 1.0))}" if rule.count_30_day > 0
-      f.puts
-     end
-
+      
     if @verbose then
       puts '=============================================================================================================='
       puts
@@ -299,17 +348,118 @@ class PTStream
       puts "Longest rule has #{@rule_stats['rule_length_max']} characters."
       puts "Average rule has #{@rule_stats['rule_length_avg']} characters"
 
-      puts "30-day counts before: #{separate_comma(@rule_stats['rule_count_totals'].to_i)}" if (@pt_rules_corrected.length) > 0
-      puts "30-day counts after: #{separate_comma(@rule_stats['rule_count_corrected_totals'].to_i)}" if (@pt_rules_corrected.length) > 0
-      puts "Rule with highest delta (#{@rule_stats['rule_max_delta']} <= #{@rule_stats['rule_max_delta_30_day_corrected']} - #{@rule_stats['rule_max_delta_30_day']}): #{@rule_stats['rule_max_delta_value']}" if (@pt_rules_corrected.length) > 0
-      puts "Rule with highest factor (#{@rule_stats['rule_max_factor']} <= #{@rule_stats['rule_max_factor_30_day_corrected']} / #{@rule_stats['rule_max_factor_30_day']}): #{@rule_stats['rule_max_factor_value']}" if (@pt_rules_corrected.length) > 0
-      puts
-      puts "=============================================================================================================="
-      puts
+      if !@pt_rules_corrected.nil? and @pt_rules_non_search.length > 0 then
+        puts "30-day counts before: #{separate_comma(@rule_stats['rule_count_totals'].to_i)}" if (@pt_rules_corrected.length) > 0
+        puts "30-day counts after: #{separate_comma(@rule_stats['rule_count_corrected_totals'].to_i)}" if (@pt_rules_corrected.length) > 0
+        puts "Rule with highest delta (#{@rule_stats['rule_max_delta']} <= #{@rule_stats['rule_max_delta_30_day_corrected']} - #{@rule_stats['rule_max_delta_30_day']}): #{@rule_stats['rule_max_delta_value']}" if (@pt_rules_corrected.length) > 0
+        puts "Rule with highest factor (#{@rule_stats['rule_max_factor']} <= #{@rule_stats['rule_max_factor_30_day_corrected']} / #{@rule_stats['rule_max_factor_30_day']}): #{@rule_stats['rule_max_factor_value']}" if (@pt_rules_corrected.length) > 0
+        puts
+        puts "=============================================================================================================="
+        puts
+      end
     end
 
+    if !@pt_rules_non_search.nil? and @pt_rules_non_search.length > 0 then
+      puts
+      puts
+      puts "Here are #{@pt_rules_non_search.length} rules that could not be tested with the Search API:"
+      puts
+      @pt_rules_non_search.each do |rule|
+        puts "Original rule: #{rule.value}"
+        puts "Suggested rule: #{rule.value_corrected}"
+        puts
+      end
+    end
   end
+  
+  def make_rules_api_json
 
+    output_folder = './output/JSON_updates/'
+
+
+    if !@pt_rules_corrected.nil? and @pt_rules_corrected.length > 0 then 
+    
+      add_rules = {}
+      rules_to_add = []
+      @pt_rules_corrected.each do |rule|
+        rule_to_add = {}
+        rule_to_add['value'] = rule.value_corrected
+        rule_to_add['tag'] = rule.tag
+        
+        rules_to_add << rule_to_add
+      end
+      
+      add_rules['rules'] = rules_to_add #Construct 'rules' JSON array.
+      
+      filename = "#{@account_name}_#{@label}_ADD.json"
+  
+      f = File.new(output_folder + filename,  "w+")
+      f.puts add_rules.to_json
+      f.close
+     
+      
+      delete_rules = {}
+      rules_to_delete = []
+      @pt_rules_corrected.each do |rule|
+        rule_to_delete = {}
+        rule_to_delete['value'] = rule.value
+        #rule_to_delete['tag'] = rule['tag'] #Not needed for deletes.
+  
+        rules_to_delete << rule_to_delete
+      end
+  
+      delete_rules['rules'] = rules_to_delete #Construct 'rules' JSON array.
+  
+      filename = "#{@account_name}_#{@label}_DELETE.json"
+  
+      f = File.new(output_folder + filename,  "w+")
+      f.puts delete_rules.to_json
+      f.close
+    end
+      
+    #Now handle rules that could not be confirmed with Search API.
+
+    return if @pt_rules_non_search.nil? or @pt_rules_non_search.length > 0
+
+    add_rules = {}
+    rules_to_add = []
+    @pt_rules_non_search.each do |rule|
+      rule_to_add = {}
+      rule_to_add['value'] = rule.value_corrected
+      rule_to_add['tag'] = rule.tag
+
+      rules_to_add << rule_to_add
+    end
+
+    add_rules['rules'] = rules_to_add #Construct 'rules' JSON array.
+
+    filename = "#{@account_name}_#{@label}_ADD_UNCHECKED.json"
+
+    f = File.new(output_folder + filename,  "w+")
+    f.puts add_rules.to_json
+    f.close
+
+    delete_rules = {}
+    rules_to_delete = []
+    @pt_rules_non_search.each do |rule|
+      rule_to_delete = {}
+      rule_to_delete['value'] = rule.value
+      #rule_to_delete['tag'] = rule['tag'] #Not needed for deletes.
+
+      rules_to_delete << rule_to_delete
+    end
+
+    delete_rules['rules'] = rules_to_delete #Construct 'rules' JSON array.
+
+    filename = "#{@account_name}_#{@label}_DELETE_UNCHECKED.json"
+
+    f = File.new(output_folder + filename,  "w+")
+    f.puts delete_rules.to_json
+    f.close
+  end
+  
+
+  #Formats 233456 --> 233,456
   def separate_comma(number)
     number.to_s.chars.to_a.reverse.each_slice(3).map(&:join).join(",").reverse
   end
@@ -318,7 +468,7 @@ class PTStream
   def process_rules(rules_api_creds, search_api_creds)
   
     logger.debug  "Checking stream for #{@account_name}..."
-  
+    
     load_rules rules_api_creds #Load all rules, the good, the bad, and the ugly.
     
     @rule_stats = @pt_rule_stats.get_rule_stats @pt_rules
@@ -333,7 +483,7 @@ class PTStream
   
     @pt_rules_corrected = check_corrections @pt_rules_corrected, search_api_creds
   
-    @rule_stats = @pt_rule_stats.get_corrected_stats @pt_rules_corrected
+    @rule_stats = @pt_rule_stats.get_corrected_stats @pt_rules_corrected if !@pt_rules_corrected.nil?
   
   end
 
