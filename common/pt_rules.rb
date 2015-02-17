@@ -74,7 +74,7 @@ class PTRules
 
     remove_AND_indices = []
 
-    parts = rule.split(/AND|and/)\
+    parts = rule.split(/ AND | and /)\
 
     quotes = 0
     quotes_total = 0
@@ -124,6 +124,39 @@ class PTRules
     new_rule = rule.gsub(' or ',' OR ')
     
     new_rule
+  end
+  
+  
+  #Expects an array of pt_rule objects.
+  #Returns JSON string.
+  def make_rules_api_json rules, method
+
+    if rules.nil? or rules.length == 0 then
+      return ''
+    end
+
+    if !rules.nil? and rules.length > 0 then
+
+      rules_hash = {}
+      rules_to_write = []
+            
+      rules.each do |rule|
+        rule_update = {}
+        if method == 'add' then
+          rule_update['value'] = rule.value_corrected
+          rule_update['tag'] = rule.tag
+        elsif method == 'delete' then
+          rule_update['value'] = rule.value
+        end
+
+        rules_to_write << rule_update
+      end
+
+      rules_hash['rules'] = rules_to_write #Construct 'rules' JSON array.
+      
+    end
+      
+    return rules_hash.to_json
   end
 
   def write_output rule
@@ -289,12 +322,21 @@ if __FILE__ == $0  #This script code is executed when running this file.
 
   o = PTRules.new
   
+  r = '("Sandy Recovery" OR ("New Jersey" AND "Housing Counseling") OR ("New Jersey" AND "Housing Assistance") OR "reNewJerseyStronger" OR "New Jersey Stronger" OR "New Jersey Strong") OR (#9NJCounties OR #superstormsandy OR #renewjerseystronger)'
+  puts o.unquoted_clause? r, 'and'
+  puts o.unquoted_clause? r, 'AND'
+  
+  puts r
+  puts o.fix_AND_rule r
+  
   #Unquoted explicit ANDs and ands rules -------------------------------------------------------------------------------
   r = 'wireless "EDMUNDS AND WILLIAMS" (lang:en OR (-has:lang -has:lang) OR twitter_lang:en OR twitter_lang:und) -deals -sale -Samsung -Obama -Amazon -salary -employee -progarmmers'
   puts o.unquoted_clause? r, 'and'
   puts o.unquoted_clause? r, 'AND'
-  
 
+  puts r
+  puts o.fix_AND_rule r
+  
   r = 'these AND "this and that" AND "up and down" and "back and forth" AND "first and last"'
   #Unquoted ANDs are special because no matter what case, they are bad.
   
@@ -303,17 +345,19 @@ if __FILE__ == $0  #This script code is executed when running this file.
   puts o.unquoted_clause? r, 'AND'
   
   #Now fix that rule.
-  puts o.pt_rules.fix_AND_rule r
+  puts r
+  puts o.fix_AND_rule r
   
   #unquoted, lowercase 'or' rules --------------------------------------------------------------------------------------
   r = 'these OR "this or that" OR "up or down" or "back or forth" OR "first or last"'
   #ORs are special because only unquoted lowercase instances are bad.
 
   #Scanning for unquoted clauses. 
-  puts o.pt_rules.unquoted_clause? r, 'or'
+  puts o.unquoted_clause? r, 'or'
 
   #Now fix that rule.
-  puts o.pt_rules.fix_or_rule r
+  puts r
+  puts o.fix_or_rule r
 
   #What other common mistakes should we scan for and fix?
   puts 'done'
