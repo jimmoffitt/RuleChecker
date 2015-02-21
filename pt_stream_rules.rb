@@ -174,7 +174,7 @@ class PtStreamRules
     #Analyze Corrected rules.
     rules_corrected.each do |rule|
 
-      if @pt_rule_helper.worksWithSearch? rule.value then       
+      if @pt_rule_helper.works_with_search? rule.value then
         
         counts_response = nil
         until !counts_response.nil? do
