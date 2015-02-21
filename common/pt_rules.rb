@@ -28,7 +28,7 @@ class PTRules
   end
 
   #TODO: implement full tour of non-Search API operators.
-  def worksWithSearch? (value=nil)
+  def works_with_search? (value=nil)
 
     value = @value unless not value.nil?
 
