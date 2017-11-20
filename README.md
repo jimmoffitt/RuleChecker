@@ -16,7 +16,7 @@ Currently, there are tools designed to:
     * Missing double quotes around exact phrases.
     * Produce report-ready output rendered in markdown.
 
-####Family of related tools.
+#### Family of related tools.
 
 * rule_checker.rb -- Checks PowerTrack realtime rulesets for 'bad' rules, fixes them, and compares results. Handles:
    * Explicit ANDs.
@@ -31,9 +31,9 @@ Currently, there are tools designed to:
 
 
 
-####Examples of 'ineffective' PowerTrack rules
+#### Examples of 'ineffective' PowerTrack rules
 
-#####Explicit ANDs
+##### Explicit ANDs
 
 Using explicit ANDs is likely the most common mistake when developing PowerTrack rules. Many query languages like SQL and Lucene use these operators for combining clauses. PowerTrack instead uses a space between terms.
 
@@ -71,4 +71,6 @@ Corrected: lang:es playa
                      Delta: 1,805,085 | Factor: 2960.2
 ```
 
-#####Assessing Negation Effectiveness
+##### Assessing Negation Effectiveness
+
+Not implemented, should be straightforward?
